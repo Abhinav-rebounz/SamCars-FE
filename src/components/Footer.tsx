@@ -11,7 +11,7 @@ const Footer: React.FC = () => {
           <div>
             <div className="flex items-center space-x-2 mb-4">
               <Car className="h-8 w-8 text-blue-400" />
-              <span className="text-xl font-bold">Sam Cars LLC</span>
+              <span className="text-xl font-bold">Saam Cars LLC</span>
             </div>
             <p className="text-gray-300 mb-4">
               Specializing in high-quality pre-owned vehicles at affordable prices. Your trusted partner in finding the perfect car.
@@ -80,7 +80,7 @@ const Footer: React.FC = () => {
               </li>
               <li className="flex items-center space-x-3">
                 <Mail className="h-5 w-5 text-blue-400" />
-                <span className="text-gray-300">info@samcars.com</span>
+                <span className="text-gray-300">info@saamcars.com</span>
               </li>
             </ul>
             <div className="mt-4">
@@ -93,7 +93,7 @@ const Footer: React.FC = () => {
         </div>
 
         <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-          <p>&copy; {new Date().getFullYear()} Sam Cars LLC. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Saam Cars LLC. All rights reserved.</p>
         </div>
       </div>
     </footer>

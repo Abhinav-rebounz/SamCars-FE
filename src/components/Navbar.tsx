@@ -26,7 +26,7 @@ const Navbar: React.FC = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <Car className="h-8 w-8 text-blue-700" />
-            <span className="text-xl font-bold text-blue-700">Sam Cars</span>
+            <span className="text-xl font-bold text-blue-700">Saam Cars</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -57,7 +57,7 @@ const Navbar: React.FC = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                <Link to="/wishlist" className="text-gray-700 hover:text-blue-700">
+                <Link to="/wishlist\" className="text-gray-700 hover:text-blue-700">
                   <Heart className="h-6 w-6" />
                 </Link>
                 <Link to="/account" className="text-gray-700 hover:text-blue-700 flex items-center space-x-1">
