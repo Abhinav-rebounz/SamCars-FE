@@ -38,14 +38,14 @@ const Dashboard: React.FC = () => {
       icon: <Users className="h-6 w-6 text-white" />,
       color: 'bg-purple-600',
     },
-    {
-      title: 'Appointments',
-      value: '42',
-      change: '-3.2%',
-      trend: 'down',
-      icon: <Calendar className="h-6 w-6 text-white" />,
-      color: 'bg-amber-600',
-    },
+    // {
+    //   title: 'Appointments',
+    //   value: '42',
+    //   change: '-3.2%',
+    //   trend: 'down',
+    //   icon: <Calendar className="h-6 w-6 text-white" />,
+    //   color: 'bg-amber-600',
+    // },
   ];
 
   const recentSales = [
@@ -203,7 +203,7 @@ const Dashboard: React.FC = () => {
         </div>
         
         {/* Upcoming Appointments */}
-        <div className="bg-white rounded-lg shadow-md">
+        {/* <div className="bg-white rounded-lg shadow-md">
           <div className="px-6 py-5 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Upcoming Appointments</h2>
@@ -254,7 +254,7 @@ const Dashboard: React.FC = () => {
               </table>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -272,7 +272,7 @@ const Dashboard: React.FC = () => {
         </div>
         
         {/* Alerts */}
-        <div className="bg-white rounded-lg shadow-md">
+        {/* <div className="bg-white rounded-lg shadow-md">
           <div className="px-6 py-5 border-b border-gray-200">
             <h2 className="font-semibold text-gray-900">Alerts</h2>
           </div>
@@ -311,7 +311,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

@@ -22,10 +22,10 @@ const AdminSidebar: React.FC = () => {
   const navItems = [
     { path: '/admin', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
     { path: '/admin/inventory', icon: <Car size={20} />, label: 'Inventory' },
-    { path: '/admin/appointments', icon: <Calendar size={20} />, label: 'Appointments' },
+    // { path: '/admin/appointments', icon: <Calendar size={20} />, label: 'Appointments' },
     { path: '/admin/payments', icon: <DollarSign size={20} />, label: 'Payments' },
     { path: '/admin/auctions', icon: <Gavel size={20} />, label: 'Auctions' },
-    { path: '/admin/services', icon: <Wrench size={20} />, label: 'Services' },
+    // { path: '/admin/services', icon: <Wrench size={20} />, label: 'Services' },
   ];
 
   return (

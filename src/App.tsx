@@ -18,7 +18,7 @@ import SellCarPage from './pages/customer/SellCarPage';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminInventory from './pages/admin/Inventory';
-import AdminAppointments from './pages/admin/Appointments';
+// import AdminAppointments from './pages/admin/Appointments';
 import AdminPayments from './pages/admin/Payments';
 import AdminAuctions from './pages/admin/Auctions';
 import AdminServices from './pages/admin/Services';
@@ -52,7 +52,7 @@ function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="inventory" element={<AdminInventory />} />
-            <Route path="appointments" element={<AdminAppointments />} />
+            {/* <Route path="appointments" element={<AdminAppointments />} /> */}
             <Route path="payments" element={<AdminPayments />} />
             <Route path="auctions" element={<AdminAuctions />} />
             <Route path="services" element={<AdminServices />} />
