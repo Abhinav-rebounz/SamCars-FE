@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+// src/contexts/AuthContext.tsx
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { login as loginService, register as registerService, logout as logoutService } from '../services/auth';
 
 interface User {
@@ -20,15 +21,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
+
     if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
     }
     setIsLoading(false);
   }, []);
@@ -39,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (result.success) {
         setUser(result.user);
         localStorage.setItem('user', JSON.stringify(result.user));
+        localStorage.setItem('token', result.token);
         return true;
       }
       return false;
@@ -48,12 +60,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (firstName: string, lastName: string, email: string, password: string): Promise<boolean> => {
+  const register = async (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string
+  ): Promise<boolean> => {
     try {
       const result = await registerService(firstName, lastName, email, password);
       if (result.success) {
-        setUser(result.user);
-        localStorage.setItem('user', JSON.stringify(result.user));
+        // Ensure default role is 'customer' if not provided
+        const newUser = { ...result.user, role: result.user.role || 'customer' };
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        localStorage.setItem('token', result.token);
         return true;
       }
       return false;
@@ -67,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logoutService();
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
   };
 
   if (isLoading) {
@@ -91,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

@@ -21,36 +21,59 @@ interface ErrorResponse {
 
 export const login = async (email: string, password: string) => {
   try {
-    const response = await api.post<LoginResponse>(API_ENDPOINTS.LOGIN, { email, password });
-    const { accessToken, refreshToken, user } = response.data;
-    localStorage.setItem('token', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('password', password);
+
+    const response = await api.post(API_ENDPOINTS.LOGIN, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    const { token, user } = response.data;
+    localStorage.setItem('token', token);
     return { success: true, user };
   } catch (error) {
-    const axiosError = error as AxiosError<ErrorResponse>;
-    return { 
-      success: false, 
-      error: axiosError.response?.data?.message || 'Login failed' 
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Login failed'
     };
   }
 };
 
-export const register = async (firstName: string, lastName: string, email: string, password: string) => {
+export const register = async (
+  firstName: string,
+  lastName: string,
+  email: string,
+  password: string,
+  role: string = 'customer' // optional default
+) => {
   try {
-    const response = await api.post(API_ENDPOINTS.REGISTER, {
-      email,
-      first_name: firstName,
-      last_name: lastName,
-      password
+    const formData = new FormData();
+    formData.append('first_name', firstName);
+    formData.append('last_name', lastName);
+    formData.append('email', email);
+    formData.append('password', password);
+    formData.append('role', role);
+
+    const response = await api.post(API_ENDPOINTS.REGISTER, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
     });
+
     const { token, user } = response.data;
     localStorage.setItem('token', token);
     return { success: true, user };
-  } catch (error: unknown) {
-    const axiosError = error as AxiosError<ErrorResponse>;
-    return { success: false, error: axiosError.response?.data?.message || 'Registration failed' };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Registration failed'
+    };
   }
 };
+
 
 export const fetchUserById = async (userId: string) => {
   try {
