@@ -4,12 +4,8 @@ export const API_ENDPOINTS = {
   // Auth
   LOGIN: '/users/login',
   REGISTER: '/users/register',
-  USER_BY_ID: (id: string) => `/users/fetch-by-id/${id}`,
-  
-  // Vehicles
-  VEHICLES: '/vehicles',
-  VEHICLE_DETAILS: (id: string) => `/vehicles/${id}`,
-  VEHICLE_RESERVE: '/vehicles/reserve',
+  USER_PROFILE: '/users/profile',
+  USER_BY_ID: (id: string) => `/users/${id}`,
   
   // Services
   SERVICES: '/services',

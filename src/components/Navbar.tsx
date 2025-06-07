@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Menu, X, ShoppingCart, Heart, User } from 'lucide-react';
+import { Car, Menu, X, Heart, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 
@@ -34,15 +34,9 @@ const Navbar: React.FC = () => {
             <Link to="/" className="text-gray-700 hover:text-blue-700 font-medium">
               Home
             </Link>
-            <Link to="/inventory" className="text-gray-700 hover:text-blue-700 font-medium">
-              Inventory
-            </Link>
-            <Link to="/sell-car" className="text-gray-700 hover:text-blue-700 font-medium">
-              Sell Your Car
-            </Link>
-            {/* <Link to="/services" className="text-gray-700 hover:text-blue-700 font-medium">
+            <Link to="/services" className="text-gray-700 hover:text-blue-700 font-medium">
               Services
-            </Link> */}
+            </Link>
             <Link to="/contact" className="text-gray-700 hover:text-blue-700 font-medium">
               Contact
             </Link>
@@ -62,7 +56,7 @@ const Navbar: React.FC = () => {
                 </Link>
                 <Link to="/account" className="text-gray-700 hover:text-blue-700 flex items-center space-x-1">
                   <User className="h-6 w-6" />
-                  <span className="text-sm">{user?.name}</span>
+                  <span className="text-sm">{user?.first_name}</span>
                 </Link>
                 <button 
                   onClick={handleLogout}
@@ -104,20 +98,6 @@ const Navbar: React.FC = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
-              </Link>
-              <Link 
-                to="/inventory" 
-                className="text-gray-700 hover:text-blue-700 font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Inventory
-              </Link>
-              <Link 
-                to="/sell-car" 
-                className="text-gray-700 hover:text-blue-700 font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Sell Your Car
               </Link>
               <Link 
                 to="/services" 

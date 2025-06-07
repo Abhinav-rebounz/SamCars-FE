@@ -5,7 +5,12 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const AdminHeader: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
     <header className="bg-white shadow-sm z-10">
@@ -46,19 +51,43 @@ const AdminHeader: React.FC = () => {
           </div>
 
           {/* User menu */}
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
             <button className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none">
               <Bell className="h-6 w-6" />
             </button>
-            <div className="ml-3 relative">
-              <div className="flex items-center">
-                <span className="hidden md:block mr-2 text-sm font-medium text-gray-700">
-                  {user?.name}
-                </span>
-                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                  <User className="h-5 w-5 text-gray-500" />
+            <div className="relative">
+              <button
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="flex items-center focus:outline-none"
+              >
+                <div className="h-8 w-8 rounded-full bg-blue-700 flex items-center justify-center text-white">
+                  <User className="h-5 w-5" />
                 </div>
-              </div>
+              </button>
+              
+              {/* Profile dropdown */}
+              {isProfileMenuOpen && (
+                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+                  <div className="py-1">
+                    <Link
+                      to="/admin/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      Profile Settings
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -83,13 +112,6 @@ const AdminHeader: React.FC = () => {
               Inventory
             </Link>
             <Link
-              to="/admin/appointments"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-50"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Appointments
-            </Link>
-            <Link
               to="/admin/payments"
               className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-50"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -104,20 +126,20 @@ const AdminHeader: React.FC = () => {
               Auctions
             </Link>
             <Link
-              to="/admin/services"
+              to="/admin/profile"
               className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-50"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Services
+              Profile Settings
             </Link>
             <button
               onClick={() => {
-                logout();
+                handleLogout();
                 setIsMobileMenuOpen(false);
               }}
               className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-50"
             >
-              Logout
+              Sign out
             </button>
           </div>
         </div>

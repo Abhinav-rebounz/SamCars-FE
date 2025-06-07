@@ -5,6 +5,21 @@ import { AxiosError } from 'axios';
 interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  sessionExpires: string;
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    first_name: string;
+    last_name: string;
+  };
+  message: string;
+}
+
+interface RegisterResponse {
+  accessToken: string;
+  refreshToken: string;
+  sessionExpires: string;
   user: {
     id: string;
     email: string;
@@ -25,19 +40,34 @@ export const login = async (email: string, password: string) => {
     formData.append('email', email);
     formData.append('password', password);
 
-    const response = await api.post(API_ENDPOINTS.LOGIN, formData, {
+    const response = await api.post<LoginResponse>(API_ENDPOINTS.LOGIN, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
 
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    return { success: true, user };
+    const { accessToken, refreshToken, sessionExpires, user } = response.data;
+    
+    // Store tokens and session info
+    localStorage.setItem('token', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('sessionExpires', sessionExpires);
+    localStorage.setItem('user', JSON.stringify(user));
+
+    // Update API instance authorization header
+    api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+    return { 
+      success: true, 
+      user,
+      sessionExpires 
+    };
   } catch (error) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    console.error('Login error:', axiosError.response?.data || axiosError.message);
     return {
       success: false,
-      error: error.response?.data?.message || 'Login failed'
+      error: axiosError.response?.data?.message || 'Login failed'
     };
   }
 };
@@ -47,7 +77,7 @@ export const register = async (
   lastName: string,
   email: string,
   password: string,
-  role: string = 'customer' // optional default
+  role: string = 'customer'
 ) => {
   try {
     const formData = new FormData();
@@ -57,23 +87,37 @@ export const register = async (
     formData.append('password', password);
     formData.append('role', role);
 
-    const response = await api.post(API_ENDPOINTS.REGISTER, formData, {
+    const response = await api.post<RegisterResponse>(API_ENDPOINTS.REGISTER, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
 
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    return { success: true, user };
+    const { accessToken, refreshToken, sessionExpires, user } = response.data;
+    
+    // Store tokens and session info
+    localStorage.setItem('token', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('sessionExpires', sessionExpires);
+    localStorage.setItem('user', JSON.stringify(user));
+
+    // Update API instance authorization header
+    api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+    return { 
+      success: true, 
+      user,
+      sessionExpires 
+    };
   } catch (error) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    console.error('Registration error:', axiosError.response?.data || axiosError.message);
     return {
       success: false,
-      error: error.response?.data?.message || 'Registration failed'
+      error: axiosError.response?.data?.message || 'Registration failed'
     };
   }
 };
-
 
 export const fetchUserById = async (userId: string) => {
   try {
@@ -86,5 +130,21 @@ export const fetchUserById = async (userId: string) => {
 };
 
 export const logout = () => {
+  // Clear all auth-related items from localStorage
   localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('sessionExpires');
+  localStorage.removeItem('user');
+  
+  // Clear the authorization header
+  delete api.defaults.headers.common['Authorization'];
+};
+
+// Add a function to check if the session is expired
+export const isSessionExpired = (): boolean => {
+  const sessionExpires = localStorage.getItem('sessionExpires');
+  if (!sessionExpires) return true;
+  
+  const expiryDate = new Date(sessionExpires);
+  return expiryDate <= new Date();
 };

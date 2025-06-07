@@ -1,10 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { User, Car, Calendar, FileText, CreditCard, Heart, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { getUserProfile, updateUserProfile, UserProfile } from '../../services/user';
+import { format, parseISO } from 'date-fns';
 
 const AccountPage: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user: authUser, isAuthenticated, logout } = useAuth();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    driver_license: '',
+    date_of_birth: ''
+  });
   const [activeTab, setActiveTab] = useState('profile');
   
   // Redirect to login if not authenticated
@@ -12,6 +26,73 @@ const AccountPage: React.FC = () => {
     return <Navigate to="/login" />;
   }
   
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        console.log('Fetching user profile...');
+        const result = await getUserProfile();
+        console.log('Profile fetch result:', result);
+        
+        if (result.success && result.user) {
+          setUser(result.user);
+          setFormData({
+            first_name: result.user.first_name,
+            last_name: result.user.last_name,
+            phone: result.user.phone || '',
+            driver_license: result.user.driver_license || '',
+            date_of_birth: result.user.date_of_birth || ''
+          });
+        } else {
+          setError(result.error || 'Failed to load profile');
+        }
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+        setError('An error occurred while loading your profile');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await updateUserProfile(formData);
+      if (result.success && result.user) {
+        setUser(result.user);
+        setIsEditing(false);
+        setSuccess('Profile updated successfully!');
+      } else {
+        setError(result.error || 'Failed to update profile');
+      }
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError('An error occurred while updating the profile');
+    }
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Not provided';
+    try {
+      return format(parseISO(dateString), 'PP');
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
   // Mock data for the account page
   const testDrives = [
     {
@@ -73,10 +154,49 @@ const AccountPage: React.FC = () => {
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !user) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-2 text-sm underline hover:no-underline"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container-custom py-8">
         <h1 className="heading-lg mb-8">My Account</h1>
+        
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+        
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            {success}
+          </div>
+        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
@@ -192,77 +312,114 @@ const AccountPage: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
                   
-                  <form>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <div>
-                        <label className="form-label">Full Name</label>
-                        <input
-                          type="text"
-                          defaultValue={user?.name}
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Email Address</label>
-                        <input
-                          type="email"
-                          defaultValue={user?.email}
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Phone Number</label>
-                        <input
-                          type="tel"
-                          defaultValue="(555) 123-4567"
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Address</label>
-                        <input
-                          type="text"
-                          defaultValue="123 Main St, Anytown, USA"
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-gray-200 pt-6 mt-6">
-                      <h3 className="font-semibold mb-4">Change Password</h3>
+                  {!isEditing ? (
+                    <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="form-label">Current Password</label>
-                          <input
-                            type="password"
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                          />
+                          <label className="block text-sm font-medium text-gray-600">First Name</label>
+                          <p className="mt-1 text-lg">{user.first_name}</p>
                         </div>
-                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="form-label">New Password</label>
-                            <input
-                              type="password"
-                              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label">Confirm New Password</label>
-                            <input
-                              type="password"
-                              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Last Name</label>
+                          <p className="mt-1 text-lg">{user.last_name}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Email</label>
+                          <p className="mt-1 text-lg">{user.email}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Phone</label>
+                          <p className="mt-1 text-lg">{user.phone || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Driver's License</label>
+                          <p className="mt-1 text-lg">{user.driver_license || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Date of Birth</label>
+                          <p className="mt-1 text-lg">{formatDate(user.date_of_birth)}</p>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="mt-6">
-                      <button type="submit" className="btn-primary">
-                        Save Changes
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        Edit Profile
                       </button>
                     </div>
-                  </form>
+                  ) : (
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">First Name</label>
+                          <input
+                            type="text"
+                            name="first_name"
+                            value={formData.first_name}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Last Name</label>
+                          <input
+                            type="text"
+                            name="last_name"
+                            value={formData.last_name}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Phone</label>
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Driver's License</label>
+                          <input
+                            type="text"
+                            name="driver_license"
+                            value={formData.driver_license}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600">Date of Birth</label>
+                          <input
+                            type="date"
+                            name="date_of_birth"
+                            value={formData.date_of_birth}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex space-x-4">
+                        <button
+                          type="submit"
+                          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                          Save Changes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditing(false)}
+                          className="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               )}
               

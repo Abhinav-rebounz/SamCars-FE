@@ -7,7 +7,8 @@ import {
   DollarSign, 
   Gavel, 
   Wrench, 
-  LogOut 
+  LogOut,
+  User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -65,6 +66,21 @@ const AdminSidebar: React.FC = () => {
         </div>
         
         <ul className="mt-2">
+          <li className="px-2 py-1">
+            <Link
+              to="/admin/profile"
+              className={`flex items-center px-4 py-3 rounded-md transition-colors ${
+                isActive('/admin/profile')
+                  ? 'bg-blue-700 text-white'
+                  : 'text-gray-300 hover:bg-gray-800'
+              }`}
+            >
+              <span className="mr-3">
+                <User size={20} />
+              </span>
+              <span>Profile Settings</span>
+            </Link>
+          </li>
           <li className="px-2 py-1">
             <button
               onClick={logout}
