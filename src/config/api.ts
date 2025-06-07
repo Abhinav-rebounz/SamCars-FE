@@ -19,6 +19,10 @@ export const API_ENDPOINTS = {
   // Payments
   PAYMENTS: '/payments',
   PAYMENT_VERIFY: '/payments/verify',
+
+  //Inventory
+  ADD_NEW_VEHICLE: '/inventory/add-vehicle',
+  
 };
 
 export const getAuthHeader = () => {

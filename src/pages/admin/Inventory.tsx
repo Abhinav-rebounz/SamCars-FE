@@ -1,48 +1,88 @@
-import React, { useState } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Edit, 
-  Trash2, 
-  ChevronDown, 
+import {
+  ChevronDown,
   ChevronUp,
-  Tag,
-  Check,
-  X
+  Edit,
+  Filter,
+  Plus,
+  Search,
+  Trash2
 } from 'lucide-react';
-import { vehicles } from '../../data/vehicles';
+import React, { useState } from 'react';
+import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+import { vehicles as initialVehicles } from '../../data/vehicles'; // Renamed to avoid conflict
+import api from '../../services/api';
+
+// Define a type for your vehicle data for better type safety
+interface Vehicle {
+  id: string;
+  make: string;
+  model: string;
+  year: number;
+  price: number;
+  mileage: number;
+  vin: string;
+  exteriorColor: string;
+  interiorColor: string;
+  transmission: string;
+  bodyType: string;
+  description: string;
+  isSold: boolean;
+  tags: string[];
+  images: string[]; // URLs of images
+  dateAdded: string;
+}
 
 const Inventory: React.FC = () => {
+  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles); // Use state to manage vehicles
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('dateAdded');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
-  
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null); // Renamed to avoid confusion with actual vehicle object
+
+  // State for the new vehicle form
+  const [newVehicle, setNewVehicle] = useState<Omit<Vehicle, 'id' | 'isSold' | 'dateAdded' | 'images'> & { images: File[] }>({
+    make: '',
+    model: '',
+    year: new Date().getFullYear(),
+    price: 0,
+    mileage: 0,
+    vin: '',
+    exteriorColor: '',
+    interiorColor: '',
+    transmission: '',
+    bodyType: '',
+    description: '',
+    tags: [],
+    images: []
+  });
+  const [addFormError, setAddFormError] = useState<string | null>(null);
+  const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null);
+
+
   // Filter vehicles based on search term
   const filteredVehicles = vehicles.filter(vehicle => {
     const searchString = `${vehicle.make} ${vehicle.model} ${vehicle.year} ${vehicle.vin}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
-  
+
   // Sort vehicles
   const sortedVehicles = [...filteredVehicles].sort((a, b) => {
     let aValue: any = a[sortField as keyof typeof a];
     let bValue: any = b[sortField as keyof typeof b];
-    
+
     // Handle date strings
     if (sortField === 'dateAdded') {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
     }
-    
+
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
   });
-  
+
   const handleSort = (field: string) => {
     if (field === sortField) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -51,18 +91,156 @@ const Inventory: React.FC = () => {
       setSortDirection('asc');
     }
   };
-  
+
   const handleDelete = (id: string) => {
-    setSelectedVehicle(id);
+    setSelectedVehicleId(id);
     setShowDeleteModal(true);
   };
-  
+
   const confirmDelete = () => {
     // In a real app, this would call an API to delete the vehicle
-    alert(`Vehicle ${selectedVehicle} would be deleted`);
+    console.log(`Vehicle ${selectedVehicleId} would be deleted`);
+    // Optimistically update UI or re-fetch from API
+    setVehicles(prevVehicles => prevVehicles.filter(v => v.id !== selectedVehicleId));
     setShowDeleteModal(false);
-    setSelectedVehicle(null);
+    setSelectedVehicleId(null);
   };
+
+  // Handler for all text/number inputs and select
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewVehicle(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handler for checkbox inputs (tags)
+  const handleTagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, checked } = e.target;
+    setNewVehicle(prev => {
+      const newTags = checked
+        ? [...prev.tags, value]
+        : prev.tags.filter(tag => tag !== value);
+      return { ...prev, tags: newTags };
+    });
+  };
+
+  // Handler for file input (images)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      // Convert FileList to Array and update state
+      setNewVehicle(prev => ({ ...prev, images: Array.from(e.target.files) }));
+    }
+  };
+
+  // Handler for submitting the new vehicle form
+  const handleAddVehicleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddFormError(null);
+    setAddFormSuccess(null);
+
+    // Basic client-side validation
+    if (!newVehicle.make || !newVehicle.model || !newVehicle.year || !newVehicle.price || !newVehicle.vin || newVehicle.images.length === 0) {
+      setAddFormError('Please fill in all required fields and upload at least one image.');
+      return;
+    }
+
+    if (newVehicle.images.length > 10) {
+        setAddFormError('You can upload a maximum of 10 images.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('make', newVehicle.make);
+    formData.append('model', newVehicle.model);
+    formData.append('year', newVehicle.year.toString());
+    formData.append('price', newVehicle.price.toString());
+    formData.append('mileage', newVehicle.mileage.toString());
+    formData.append('vin', newVehicle.vin);
+    formData.append('exterior_color', newVehicle.exteriorColor);
+    formData.append('interior_color', newVehicle.interiorColor);
+    formData.append('transmission', newVehicle.transmission.toLowerCase());
+    formData.append('body_type', newVehicle.bodyType.toLowerCase());
+    formData.append('description', newVehicle.description);
+    formData.append('tags', JSON.stringify(newVehicle.tags));
+
+    // Append each selected image file
+    newVehicle.images.forEach(image => {
+      formData.append('images', image); // 'images' must match the Multer field name
+    });
+
+    try {
+      console.log(localStorage.getItem('token'));
+      const response = await api.post(API_BASE_URL + API_ENDPOINTS.ADD_NEW_VEHICLE, formData,{ // Adjust URL as needed
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': localStorage.getItem('token') || ''
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add vehicle.');
+      }
+
+      const responseData = await response.json();
+      setAddFormSuccess('Vehicle added successfully!');
+      // Assuming the backend returns the newly added vehicle or a success message
+      console.log('Vehicle added:', responseData);
+
+      // Optionally, refetch vehicles or add the new vehicle to state
+      // For simplicity, we'll just close the modal and reset the form
+      setNewVehicle({
+        make: '',
+        model: '',
+        year: new Date().getFullYear(),
+        price: 0,
+        mileage: 0,
+        vin: '',
+        exteriorColor: '',
+        interiorColor: '',
+        transmission: '',
+        bodyType: '',
+        description: '',
+        tags: [],
+        images: []
+      });
+      // A more robust solution would be to re-fetch the inventory or add the new vehicle object returned from the API
+      // For now, we'll simulate adding it if the structure matches and then close the modal.
+      // In a real app, you'd update your `vehicles` state with the `responseData.vehicle` if it's returned.
+      // For now, let's just close the modal and let the user re-open it to see potential changes.
+      setTimeout(() => {
+        setShowAddModal(false);
+        setAddFormSuccess(null); // Clear success message
+        // You might want to re-fetch the vehicle list here to display the new item
+        // e.g., fetchVehicles();
+      }, 2000);
+
+    } catch (error: any) {
+      setAddFormError(error.message || 'An unexpected error occurred.');
+      console.error('Error adding vehicle:', error);
+    }
+  };
+
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    setNewVehicle({ // Reset form when closing
+      make: '',
+      model: '',
+      year: new Date().getFullYear(),
+      price: 0,
+      mileage: 0,
+      vin: '',
+      exteriorColor: '',
+      interiorColor: '',
+      transmission: '',
+      bodyType: '',
+      description: '',
+      tags: [],
+      images: []
+    });
+    setAddFormError(null);
+    setAddFormSuccess(null);
+  };
+
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
@@ -76,7 +254,7 @@ const Inventory: React.FC = () => {
           Add Vehicle
         </button>
       </div>
-      
+
       {/* Filters and Search */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
@@ -94,7 +272,7 @@ const Inventory: React.FC = () => {
               />
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <Filter className="h-5 w-5 text-gray-400 mr-2" />
@@ -106,7 +284,7 @@ const Inventory: React.FC = () => {
                 <option value="sold">Sold</option>
               </select>
             </div>
-            
+
             <div>
               <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
                 <option value="10">10 per page</option>
@@ -118,15 +296,15 @@ const Inventory: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Inventory Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('make')}
                 >
@@ -137,8 +315,8 @@ const Inventory: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('year')}
                 >
@@ -149,8 +327,8 @@ const Inventory: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('price')}
                 >
@@ -161,8 +339,8 @@ const Inventory: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('mileage')}
                 >
@@ -173,14 +351,14 @@ const Inventory: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
                   Status
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('dateAdded')}
                 >
@@ -202,10 +380,10 @@ const Inventory: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
-                        <img 
-                          className="h-10 w-10 rounded-md object-cover" 
-                          src={vehicle.images[0]} 
-                          alt={`${vehicle.make} ${vehicle.model}`} 
+                        <img
+                          className="h-10 w-10 rounded-md object-cover"
+                          src={vehicle.images[0]}
+                          alt={`${vehicle.make} ${vehicle.model}`}
                         />
                       </div>
                       <div className="ml-4">
@@ -261,7 +439,7 @@ const Inventory: React.FC = () => {
                     <button className="text-blue-700 hover:text-blue-800 mr-3">
                       <Edit className="h-5 w-5" />
                     </button>
-                    <button 
+                    <button
                       className="text-red-600 hover:text-red-700"
                       onClick={() => handleDelete(vehicle.id)}
                     >
@@ -273,7 +451,7 @@ const Inventory: React.FC = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
           <div className="flex-1 flex justify-between sm:hidden">
@@ -327,7 +505,7 @@ const Inventory: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Add Vehicle Modal */}
       {showAddModal && (
         <div className="fixed z-10 inset-0 overflow-y-auto">
@@ -335,9 +513,9 @@ const Inventory: React.FC = () => {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
@@ -355,9 +533,23 @@ const Inventory: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
+                {/* Success and Error Messages */}
+                {addFormError && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4" role="alert">
+                    <strong className="font-bold">Error!</strong>
+                    <span className="block sm:inline"> {addFormError}</span>
+                  </div>
+                )}
+                {addFormSuccess && (
+                  <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-4" role="alert">
+                    <strong className="font-bold">Success!</strong>
+                    <span className="block sm:inline"> {addFormSuccess}</span>
+                  </div>
+                )}
+
                 <div className="mt-5 sm:mt-4">
-                  <form className="space-y-4">
+                  <form className="space-y-4" onSubmit={handleAddVehicleSubmit}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="make" className="block text-sm font-medium text-gray-700">
@@ -367,7 +559,10 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="make"
                           id="make"
+                          value={newVehicle.make}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         />
                       </div>
                       <div>
@@ -378,11 +573,14 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="model"
                           id="model"
+                          value={newVehicle.model}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         />
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label htmlFor="year" className="block text-sm font-medium text-gray-700">
@@ -392,7 +590,10 @@ const Inventory: React.FC = () => {
                           type="number"
                           name="year"
                           id="year"
+                          value={newVehicle.year}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         />
                       </div>
                       <div>
@@ -403,7 +604,10 @@ const Inventory: React.FC = () => {
                           type="number"
                           name="price"
                           id="price"
+                          value={newVehicle.price}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         />
                       </div>
                       <div>
@@ -414,11 +618,14 @@ const Inventory: React.FC = () => {
                           type="number"
                           name="mileage"
                           id="mileage"
+                          value={newVehicle.mileage}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         />
                       </div>
                     </div>
-                    
+
                     <div>
                       <label htmlFor="vin" className="block text-sm font-medium text-gray-700">
                         VIN
@@ -427,10 +634,13 @@ const Inventory: React.FC = () => {
                         type="text"
                         name="vin"
                         id="vin"
+                        value={newVehicle.vin}
+                        onChange={handleChange}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
                       />
                     </div>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="exteriorColor" className="block text-sm font-medium text-gray-700">
@@ -440,6 +650,8 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="exteriorColor"
                           id="exteriorColor"
+                          value={newVehicle.exteriorColor}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         />
                       </div>
@@ -451,11 +663,13 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="interiorColor"
                           id="interiorColor"
+                          value={newVehicle.interiorColor}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         />
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="transmission" className="block text-sm font-medium text-gray-700">
@@ -464,6 +678,8 @@ const Inventory: React.FC = () => {
                         <select
                           id="transmission"
                           name="transmission"
+                          value={newVehicle.transmission}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         >
                           <option value="">Select Transmission</option>
@@ -479,6 +695,8 @@ const Inventory: React.FC = () => {
                         <select
                           id="bodyType"
                           name="bodyType"
+                          value={newVehicle.bodyType}
+                          onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         >
                           <option value="">Select Body Type</option>
@@ -492,7 +710,7 @@ const Inventory: React.FC = () => {
                         </select>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                         Description
@@ -501,10 +719,12 @@ const Inventory: React.FC = () => {
                         id="description"
                         name="description"
                         rows={3}
+                        value={newVehicle.description}
+                        onChange={handleChange}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       ></textarea>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Tags
@@ -515,6 +735,9 @@ const Inventory: React.FC = () => {
                             id="tag-new"
                             name="tags"
                             type="checkbox"
+                            value="new"
+                            checked={newVehicle.tags.includes('new')}
+                            onChange={handleTagChange}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                           <label htmlFor="tag-new" className="ml-2 block text-sm text-gray-700">
@@ -526,6 +749,9 @@ const Inventory: React.FC = () => {
                             id="tag-featured"
                             name="tags"
                             type="checkbox"
+                            value="featured"
+                            checked={newVehicle.tags.includes('featured')}
+                            onChange={handleTagChange}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                           <label htmlFor="tag-featured" className="ml-2 block text-sm text-gray-700">
@@ -537,6 +763,9 @@ const Inventory: React.FC = () => {
                             id="tag-price-drop"
                             name="tags"
                             type="checkbox"
+                            value="price-drop"
+                            checked={newVehicle.tags.includes('price-drop')}
+                            onChange={handleTagChange}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                           <label htmlFor="tag-price-drop" className="ml-2 block text-sm text-gray-700">
@@ -545,7 +774,7 @@ const Inventory: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Upload Images
@@ -572,39 +801,52 @@ const Inventory: React.FC = () => {
                               className="relative cursor-pointer bg-white rounded-md font-medium text-blue-700 hover:text-blue-800 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
                             >
                               <span>Upload files</span>
-                              <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple />
+                              <input
+                                id="file-upload"
+                                name="images" // Match this name to Multer's 'images' field
+                                type="file"
+                                className="sr-only"
+                                multiple
+                                onChange={handleFileChange}
+                                accept="image/jpeg,image/png,image/gif,image/webp"
+                              />
                             </label>
                             <p className="pl-1">or drag and drop</p>
                           </div>
                           <p className="text-xs text-gray-500">
-                            PNG, JPG, GIF up to 10MB
+                            PNG, JPG, GIF, WEBP up to 5MB each (max 10 files)
                           </p>
+                          {newVehicle.images.length > 0 && (
+                            <div className="mt-2 text-sm text-gray-900">
+                              Selected files: {newVehicle.images.map(file => file.name).join(', ')}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                      <button
+                        type="submit" // Change to type="submit"
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-700 text-base font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      >
+                        Add Vehicle
+                      </button>
+                      <button
+                        type="button" // Keep as type="button" to prevent form submission
+                        onClick={closeAddModal} // Use the new close function
+                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </form>
                 </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-700 text-base font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Add Vehicle
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed z-10 inset-0 overflow-y-auto">
@@ -612,9 +854,9 @@ const Inventory: React.FC = () => {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
@@ -636,15 +878,15 @@ const Inventory: React.FC = () => {
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  onClick={confirmDelete}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={confirmDelete}
                 >
                   Delete
                 </button>
                 <button
                   type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   onClick={() => setShowDeleteModal(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Cancel
                 </button>
