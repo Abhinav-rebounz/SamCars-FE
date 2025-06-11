@@ -22,6 +22,9 @@ export const API_ENDPOINTS = {
 
   //Inventory
   ADD_NEW_VEHICLE: '/inventory/add-vehicle',
+  GET_INVENTORY: '/inventory/fetch-vehicles',
+  DELETE_VEHICLE: '/inventory/delete-vehicle',
+
   
 };
 

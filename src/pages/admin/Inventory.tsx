@@ -7,12 +7,11 @@ import {
   Search,
   Trash2
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
-import { vehicles as initialVehicles } from '../../data/vehicles'; // Renamed to avoid conflict
 import api from '../../services/api';
 
-// Define a type for your vehicle data for better type safety
+// Define a type for vehicle data
 interface Vehicle {
   id: string;
   make: string;
@@ -28,18 +27,36 @@ interface Vehicle {
   description: string;
   isSold: boolean;
   tags: string[];
-  images: string[]; // URLs of images
+  images: string[];
   dateAdded: string;
 }
 
+// Define pagination data from API
+interface Pagination {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
 const Inventory: React.FC = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles); // Use state to manage vehicles
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState('dateAdded');
+  const [sortField, setSortField] = useState('date_added');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null); // Renamed to avoid confusion with actual vehicle object
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [addFormError, setAddFormError] = useState<string | null>(null);
+  const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [filterStatus, setFilterStatus] = useState('');
 
   // State for the new vehicle form
   const [newVehicle, setNewVehicle] = useState<Omit<Vehicle, 'id' | 'isSold' | 'dateAdded' | 'images'> & { images: File[] }>({
@@ -57,22 +74,77 @@ const Inventory: React.FC = () => {
     tags: [],
     images: []
   });
-  const [addFormError, setAddFormError] = useState<string | null>(null);
-  const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null);
 
+  // Fetch vehicles from API
+  const fetchVehicles = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        search: searchTerm,
+        sort_by: sortField,
+        sort_order: sortDirection,
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+        ...(filterStatus && { status: filterStatus }),
+      });
 
-  // Filter vehicles based on search term
+      const response = await api.get(`${API_BASE_URL}${API_ENDPOINTS.GET_INVENTORY}?${params}`, {
+        headers: {
+          'Authorization': localStorage.getItem('token') || ''
+        }
+      });
+
+      const responseData = response.data;
+      if (responseData.status !== 'success') {
+        throw new Error(responseData.message || 'Failed to fetch vehicles');
+      }
+
+      // Map API response to Vehicle interface
+      const mappedVehicles: Vehicle[] = responseData.data.vehicles.map((v: any) => ({
+        id: v.id.toString(),
+        make: v.make,
+        model: v.model,
+        year: v.year,
+        price: v.price,
+        mileage: v.mileage,
+        vin: v.vin,
+        exteriorColor: v.exterior_color || '',
+        interiorColor: v.interior_color || '',
+        transmission: v.transmission || '',
+        bodyType: v.body_type || '',
+        description: v.description || '',
+        isSold: v.status !== 'available',
+        tags: v.tags || [],
+        images: v.image_url ? [v.image_url] : [],
+        dateAdded: v.date_added || new Date().toISOString(),
+      }));
+
+      setVehicles(mappedVehicles);
+      setPagination(responseData.data.pagination);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch vehicles');
+      console.error('Error fetching vehicles:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch vehicles on mount and when dependencies change
+  useEffect(() => {
+    fetchVehicles();
+  }, [searchTerm, sortField, sortDirection, currentPage, itemsPerPage, filterStatus]);
+
+  // Filter and sort vehicles (client-side fallback)
   const filteredVehicles = vehicles.filter(vehicle => {
     const searchString = `${vehicle.make} ${vehicle.model} ${vehicle.year} ${vehicle.vin}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
 
-  // Sort vehicles
   const sortedVehicles = [...filteredVehicles].sort((a, b) => {
     let aValue: any = a[sortField as keyof typeof a];
     let bValue: any = b[sortField as keyof typeof b];
 
-    // Handle date strings
     if (sortField === 'dateAdded') {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
@@ -84,12 +156,21 @@ const Inventory: React.FC = () => {
   });
 
   const handleSort = (field: string) => {
-    if (field === sortField) {
+    const fieldMap: { [key: string]: string } = {
+      make: 'make',
+      year: 'year',
+      price: 'price',
+      mileage: 'mileage',
+      dateAdded: 'date_added',
+    };
+    const apiField = fieldMap[field] || field;
+    if (apiField === sortField) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortField(field);
+      setSortField(apiField);
       setSortDirection('asc');
     }
+    setCurrentPage(1);
   };
 
   const handleDelete = (id: string) => {
@@ -97,22 +178,28 @@ const Inventory: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    // In a real app, this would call an API to delete the vehicle
-    console.log(`Vehicle ${selectedVehicleId} would be deleted`);
-    // Optimistically update UI or re-fetch from API
-    setVehicles(prevVehicles => prevVehicles.filter(v => v.id !== selectedVehicleId));
-    setShowDeleteModal(false);
-    setSelectedVehicleId(null);
+  const confirmDelete = async () => {
+    if (!selectedVehicleId) return;
+    try {
+      await api.delete(`${API_BASE_URL}${API_ENDPOINTS.DELETE_VEHICLE}/${selectedVehicleId}`, {
+        headers: {
+          'Authorization': localStorage.getItem('token') || ''
+        }
+      });
+      setShowDeleteModal(false);
+      setSelectedVehicleId(null);
+      await fetchVehicles(); // Refetch to sync with backend
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete vehicle');
+      console.error('Error deleting vehicle:', err);
+    }
   };
 
-  // Handler for all text/number inputs and select
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewVehicle(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handler for checkbox inputs (tags)
   const handleTagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value, checked } = e.target;
     setNewVehicle(prev => {
@@ -123,29 +210,25 @@ const Inventory: React.FC = () => {
     });
   };
 
-  // Handler for file input (images)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // Convert FileList to Array and update state
       setNewVehicle(prev => ({ ...prev, images: Array.from(e.target.files) }));
     }
   };
 
-  // Handler for submitting the new vehicle form
   const handleAddVehicleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddFormError(null);
     setAddFormSuccess(null);
 
-    // Basic client-side validation
     if (!newVehicle.make || !newVehicle.model || !newVehicle.year || !newVehicle.price || !newVehicle.vin || newVehicle.images.length === 0) {
       setAddFormError('Please fill in all required fields and upload at least one image.');
       return;
     }
 
     if (newVehicle.images.length > 10) {
-        setAddFormError('You can upload a maximum of 10 images.');
-        return;
+      setAddFormError('You can upload a maximum of 10 images.');
+      return;
     }
 
     const formData = new FormData();
@@ -162,32 +245,23 @@ const Inventory: React.FC = () => {
     formData.append('description', newVehicle.description);
     formData.append('tags', JSON.stringify(newVehicle.tags));
 
-    // Append each selected image file
     newVehicle.images.forEach(image => {
-      formData.append('images', image); // 'images' must match the Multer field name
+      formData.append('images', image);
     });
 
     try {
-      console.log(localStorage.getItem('token'));
-      const response = await api.post(API_BASE_URL + API_ENDPOINTS.ADD_NEW_VEHICLE, formData,{ // Adjust URL as needed
+      const response = await api.post(`${API_BASE_URL}${API_ENDPOINTS.ADD_NEW_VEHICLE}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': localStorage.getItem('token') || ''
         }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add vehicle.');
+      if (!response.data.status) {
+        throw new Error(response.data.message || 'Failed to add vehicle.');
       }
 
-      const responseData = await response.json();
       setAddFormSuccess('Vehicle added successfully!');
-      // Assuming the backend returns the newly added vehicle or a success message
-      console.log('Vehicle added:', responseData);
-
-      // Optionally, refetch vehicles or add the new vehicle to state
-      // For simplicity, we'll just close the modal and reset the form
       setNewVehicle({
         make: '',
         model: '',
@@ -203,17 +277,11 @@ const Inventory: React.FC = () => {
         tags: [],
         images: []
       });
-      // A more robust solution would be to re-fetch the inventory or add the new vehicle object returned from the API
-      // For now, we'll simulate adding it if the structure matches and then close the modal.
-      // In a real app, you'd update your `vehicles` state with the `responseData.vehicle` if it's returned.
-      // For now, let's just close the modal and let the user re-open it to see potential changes.
       setTimeout(() => {
         setShowAddModal(false);
-        setAddFormSuccess(null); // Clear success message
-        // You might want to re-fetch the vehicle list here to display the new item
-        // e.g., fetchVehicles();
+        setAddFormSuccess(null);
+        fetchVehicles(); // Refetch to include new vehicle
       }, 2000);
-
     } catch (error: any) {
       setAddFormError(error.message || 'An unexpected error occurred.');
       console.error('Error adding vehicle:', error);
@@ -222,7 +290,7 @@ const Inventory: React.FC = () => {
 
   const closeAddModal = () => {
     setShowAddModal(false);
-    setNewVehicle({ // Reset form when closing
+    setNewVehicle({
       make: '',
       model: '',
       year: new Date().getFullYear(),
@@ -241,6 +309,20 @@ const Inventory: React.FC = () => {
     setAddFormSuccess(null);
   };
 
+  const handlePageChange = (page: number) => {
+    if (pagination && (page < 1 || page > pagination.total_pages)) return;
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterStatus(e.target.value);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
@@ -265,7 +347,7 @@ const Inventory: React.FC = () => {
               </div>
               <input
                 type="text"
-                placeholder="Search inventory..."
+                placeholder="Search vehicles by name or VIN..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
@@ -276,17 +358,24 @@ const Inventory: React.FC = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <Filter className="h-5 w-5 text-gray-400 mr-2" />
-              <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+              <select
+                value={filterStatus}
+                onChange={handleFilterChange}
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              >
                 <option value="">All Vehicles</option>
-                <option value="new">New Arrivals</option>
-                <option value="featured">Featured</option>
-                <option value="price-drop">Price Drop</option>
+                <option value="available">Available</option>
                 <option value="sold">Sold</option>
+                <option value="maintenance">Maintenance</option>
               </select>
             </div>
 
             <div>
-              <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+              <select
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              >
                 <option value="10">10 per page</option>
                 <option value="25">25 per page</option>
                 <option value="50">50 per page</option>
@@ -297,214 +386,238 @@ const Inventory: React.FC = () => {
         </div>
       </div>
 
-      {/* Inventory Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('make')}
-                >
-                  <div className="flex items-center">
-                    Vehicle
-                    {sortField === 'make' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('year')}
-                >
-                  <div className="flex items-center">
-                    Year
-                    {sortField === 'year' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('price')}
-                >
-                  <div className="flex items-center">
-                    Price
-                    {sortField === 'price' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('mileage')}
-                >
-                  <div className="flex items-center">
-                    Mileage
-                    {sortField === 'mileage' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('dateAdded')}
-                >
-                  <div className="flex items-center">
-                    Date Added
-                    {sortField === 'dateAdded' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sortedVehicles.map((vehicle) => (
-                <tr key={vehicle.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0">
-                        <img
-                          className="h-10 w-10 rounded-md object-cover"
-                          src={vehicle.images[0]}
-                          alt={`${vehicle.make} ${vehicle.model}`}
-                        />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {vehicle.make} {vehicle.model}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          VIN: {vehicle.vin}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {vehicle.year}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                    ${vehicle.price.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {vehicle.mileage.toLocaleString()} mi
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {vehicle.isSold ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                          Sold
-                        </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Available
-                        </span>
-                      )}
-                      {vehicle.tags.length > 0 && (
-                        <div className="ml-2 flex space-x-1">
-                          {vehicle.tags.includes('new') && (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                              New
-                            </span>
-                          )}
-                          {vehicle.tags.includes('featured') && (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                              Featured
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(vehicle.dateAdded).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button className="text-blue-700 hover:text-blue-800 mr-3">
-                      <Edit className="h-5 w-5" />
-                    </button>
-                    <button
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => handleDelete(vehicle.id)}
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Loading and Error States */}
+      {loading && (
+        <div className="text-center py-4">
+          <p className="text-gray-500">Loading vehicles...</p>
         </div>
+      )}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Error!</strong>
+          <span className="block sm:inline"> {error}</span>
+        </div>
+      )}
 
-        {/* Pagination */}
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Previous
-            </button>
-            <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Next
-            </button>
+      {/* Inventory Table */}
+      {!loading && !error && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('make')}
+                  >
+                    <div className="flex items-center">
+                      Vehicle
+                      {sortField === 'make' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('year')}
+                  >
+                    <div className="flex items-center">
+                      Year
+                      {sortField === 'year' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('price')}
+                  >
+                    <div className="flex items-center">
+                      Price
+                      {sortField === 'price' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('mileage')}
+                  >
+                    <div className="flex items-center">
+                      Mileage
+                      {sortField === 'mileage' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('dateAdded')}
+                  >
+                    <div className="flex items-center">
+                      Date Added
+                      {sortField === 'date_added' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedVehicles.map((vehicle) => (
+                  <tr key={vehicle.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 flex-shrink-0">
+                          <img
+                            className="h-10 w-10 rounded-md object-cover"
+                            src={vehicle.images[0] || 'https://via.placeholder.com/40'}
+                            alt={`${vehicle.make} ${vehicle.model}`}
+                          />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {vehicle.make} {vehicle.model}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            VIN: {vehicle.vin}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.year}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                      ${vehicle.price.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.mileage.toLocaleString()} mi
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {vehicle.isSold ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            Sold
+                          </span>
+                        ) : (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Available
+                          </span>
+                        )}
+                        {vehicle.tags.length > 0 && (
+                          <div className="ml-2 flex space-x-1">
+                            {vehicle.tags.includes('new') && (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                New
+                              </span>
+                            )}
+                            {vehicle.tags.includes('featured') && (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                Featured
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(vehicle.dateAdded).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button className="text-blue-700 hover:text-blue-800 mr-3">
+                        <Edit className="h-5 w-5" />
+                      </button>
+                      <button
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => handleDelete(vehicle.id)}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to <span className="font-medium">10</span> of{' '}
-                <span className="font-medium">{vehicles.length}</span> results
-              </p>
+
+          {/* Pagination */}
+          {pagination && (
+            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={!pagination.has_previous}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={!pagination.has_next}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                    <span className="font-medium">{Math.min(currentPage * itemsPerPage, pagination.total_items)}</span> of{' '}
+                    <span className="font-medium">{pagination.total_items}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={!pagination.has_previous}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronUp className="h-5 w-5 rotate-90" />
+                    </button>
+                    {Array.from({ length: pagination.total_pages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`relative inline-flex items-center px-4 py-2 border ${
+                          page === currentPage ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                        } text-sm font-medium`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={!pagination.has_next}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronDown className="h-5 w-5 rotate-90" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
             </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  <span className="sr-only">Previous</span>
-                  <ChevronUp className="h-5 w-5 rotate-90" />
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  1
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  2
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-700">
-                  3
-                </button>
-                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                  ...
-                </span>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  8
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  9
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  10
-                </button>
-                <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  <span className="sr-only">Next</span>
-                  <ChevronDown className="h-5 w-5 rotate-90" />
-                </button>
-              </nav>
-            </div>
-          </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Add Vehicle Modal */}
       {showAddModal && (
@@ -514,7 +627,7 @@ const Inventory: React.FC = () => {
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
 
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
@@ -803,7 +916,7 @@ const Inventory: React.FC = () => {
                               <span>Upload files</span>
                               <input
                                 id="file-upload"
-                                name="images" // Match this name to Multer's 'images' field
+                                name="images"
                                 type="file"
                                 className="sr-only"
                                 multiple
@@ -826,14 +939,14 @@ const Inventory: React.FC = () => {
                     </div>
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                       <button
-                        type="submit" // Change to type="submit"
+                        type="submit"
                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-700 text-base font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
                       >
                         Add Vehicle
                       </button>
                       <button
-                        type="button" // Keep as type="button" to prevent form submission
-                        onClick={closeAddModal} // Use the new close function
+                        type="button"
+                        onClick={closeAddModal}
                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                       >
                         Cancel
@@ -855,7 +968,7 @@ const Inventory: React.FC = () => {
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
 
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
