@@ -5,11 +5,13 @@ import {
   Filter,
   Plus,
   Search,
-  Trash2
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import api from '../../services/api';
+import axios from 'axios';
 
 // Define a type for vehicle data
 interface Vehicle {
@@ -29,6 +31,12 @@ interface Vehicle {
   tags: string[];
   images: string[];
   dateAdded: string;
+  fuel_type?: string;
+  engine?: string;
+  condition?: string;
+  stock_number?: string;
+  location?: string;
+  is_featured: boolean;
 }
 
 // Define pagination data from API
@@ -39,6 +47,29 @@ interface Pagination {
   items_per_page: number;
   has_next: boolean;
   has_previous: boolean;
+}
+
+// State for the new vehicle form
+interface NewVehicle {
+  make: string;
+  model: string;
+  year: number;
+  price: number;
+  mileage: number;
+  vin: string;
+  exteriorColor: string;
+  interiorColor: string;
+  transmission: string;
+  bodyType: string;
+  description: string;
+  tags: string[];
+  images: (File | string)[]; // Allow both File objects and URLs
+  fuel_type: string;
+  engine: string;
+  condition: string;
+  stock_number: string;
+  location: string;
+  is_featured: boolean;
 }
 
 const Inventory: React.FC = () => {
@@ -53,13 +84,19 @@ const Inventory: React.FC = () => {
   const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [filterStatus, setFilterStatus] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
 
   // State for the new vehicle form
-  const [newVehicle, setNewVehicle] = useState<Omit<Vehicle, 'id' | 'isSold' | 'dateAdded' | 'images'> & { images: File[] }>({
+  const [newVehicle, setNewVehicle] = useState<NewVehicle>({
     make: '',
     model: '',
     year: new Date().getFullYear(),
@@ -72,7 +109,13 @@ const Inventory: React.FC = () => {
     bodyType: '',
     description: '',
     tags: [],
-    images: []
+    images: [],
+    fuel_type: '',
+    engine: '',
+    condition: '',
+    stock_number: '',
+    location: '',
+    is_featured: false,
   });
 
   // Fetch vehicles from API
@@ -108,7 +151,7 @@ const Inventory: React.FC = () => {
         year: v.year,
         price: v.price,
         mileage: v.mileage,
-        vin: v.vin,
+        vin: v.vin || '',
         exteriorColor: v.exterior_color || '',
         interiorColor: v.interior_color || '',
         transmission: v.transmission || '',
@@ -118,6 +161,12 @@ const Inventory: React.FC = () => {
         tags: v.tags || [],
         images: v.image_url ? [v.image_url] : [],
         dateAdded: v.date_added || new Date().toISOString(),
+        fuel_type: v.fuel_type || '',
+        engine: v.engine || '',
+        condition: v.condition || '',
+        stock_number: v.stock_number || '',
+        location: v.location || '',
+        is_featured: v.is_featured || false,
       }));
 
       setVehicles(mappedVehicles);
@@ -181,87 +230,173 @@ const Inventory: React.FC = () => {
   const confirmDelete = async () => {
     if (!selectedVehicleId) return;
     try {
-      await api.delete(`${API_BASE_URL}${API_ENDPOINTS.DELETE_VEHICLE}/${selectedVehicleId}`, {
+      const response = await api.delete(`${API_BASE_URL}${API_ENDPOINTS.DELETE_VEHICLE(selectedVehicleId)}`, {
         headers: {
-          'Authorization': localStorage.getItem('token') || ''
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      setShowDeleteModal(false);
-      setSelectedVehicleId(null);
-      await fetchVehicles(); // Refetch to sync with backend
+      
+      if (response.data.status === 'success') {
+        setShowDeleteModal(false);
+        setSelectedVehicleId(null);
+        await fetchVehicles(); // Refetch to sync with backend
+      } else {
+        setError(response.data.message || 'Failed to delete vehicle');
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to delete vehicle');
+      setError(err.response?.data?.message || err.message || 'Failed to delete vehicle');
       console.error('Error deleting vehicle:', err);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setNewVehicle(prev => ({ ...prev, [name]: value }));
+    
+    if (selectedVehicle) {
+      setSelectedVehicle(prev => ({
+        ...prev!,
+        [name]: value
+      }));
+    }
+    
+    setNewVehicle(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleTagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value, checked } = e.target;
-    setNewVehicle(prev => {
-      const newTags = checked
-        ? [...prev.tags, value]
-        : prev.tags.filter(tag => tag !== value);
-      return { ...prev, tags: newTags };
-    });
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setNewVehicle(prev => ({ ...prev, images: Array.from(e.target.files) }));
+    if (selectedVehicle) {
+      setSelectedVehicle(prev => {
+        const newTags = checked
+          ? [...prev!.tags, value]
+          : prev!.tags.filter(tag => tag !== value);
+        return { ...prev!, tags: newTags };
+      });
+    } else {
+      setNewVehicle(prev => {
+        const newTags = checked
+          ? [...prev.tags, value]
+          : prev.tags.filter(tag => tag !== value);
+        return { ...prev, tags: newTags };
+      });
     }
   };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setNewVehicle(prev => ({
+        ...prev,
+        images: [...prev.images, ...newFiles]
+      }));
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setNewVehicle(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
+
+  const renderImagePreview = (image: File | string, index: number) => {
+    const imageUrl = image instanceof File ? URL.createObjectURL(image) : image;
+    return (
+      <div key={index} className="relative group">
+        <img
+          src={imageUrl}
+          alt={`Preview ${index + 1}`}
+          className="w-full h-32 object-cover rounded-lg"
+          onError={(e) => {
+            console.error(`Error loading image ${index}:`, e);
+            const target = e.target as HTMLImageElement;
+            target.src = 'https://via.placeholder.com/150?text=Image+Error';
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => handleRemoveImage(index)}
+          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
+  // Cleanup function for object URLs
+  useEffect(() => {
+    return () => {
+      // Cleanup any object URLs created for image previews
+      newVehicle.images.forEach(image => {
+        if (image instanceof File) {
+          URL.revokeObjectURL(URL.createObjectURL(image));
+        }
+      });
+    };
+  }, [newVehicle.images]);
 
   const handleAddVehicleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAddFormError(null);
-    setAddFormSuccess(null);
-
-    if (!newVehicle.make || !newVehicle.model || !newVehicle.year || !newVehicle.price || !newVehicle.vin || newVehicle.images.length === 0) {
-      setAddFormError('Please fill in all required fields and upload at least one image.');
-      return;
-    }
-
-    if (newVehicle.images.length > 10) {
-      setAddFormError('You can upload a maximum of 10 images.');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('make', newVehicle.make);
-    formData.append('model', newVehicle.model);
-    formData.append('year', newVehicle.year.toString());
-    formData.append('price', newVehicle.price.toString());
-    formData.append('mileage', newVehicle.mileage.toString());
-    formData.append('vin', newVehicle.vin);
-    formData.append('exterior_color', newVehicle.exteriorColor);
-    formData.append('interior_color', newVehicle.interiorColor);
-    formData.append('transmission', newVehicle.transmission.toLowerCase());
-    formData.append('body_type', newVehicle.bodyType.toLowerCase());
-    formData.append('description', newVehicle.description);
-    formData.append('tags', JSON.stringify(newVehicle.tags));
-
-    newVehicle.images.forEach(image => {
-      formData.append('images', image);
-    });
-
     try {
-      const response = await api.post(`${API_BASE_URL}${API_ENDPOINTS.ADD_NEW_VEHICLE}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': localStorage.getItem('token') || ''
+      const formData = new FormData();
+      
+      // Add all vehicle data to formData
+      Object.entries(newVehicle).forEach(([key, value]) => {
+        if (key === 'images') {
+          // Handle images - only send new files, keep existing URLs
+          const images = value as (File | string)[];
+          images.forEach((image, index) => {
+            if (image instanceof File) {
+              formData.append(`images`, image);
+            } else {
+              formData.append(`existingImages`, image);
+            }
+          });
+        } else if (key === 'tags') {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value.toString());
         }
       });
 
-      if (!response.data.status) {
-        throw new Error(response.data.message || 'Failed to add vehicle.');
+      if (selectedVehicle) {
+        // Update existing vehicle
+        const response = await axios.put(
+          `${API_BASE_URL}/inventory/vehicles/update/${selectedVehicle.id}`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        console.log('Update response:', response.data);
+        setSuccessMessage('Vehicle updated successfully');
+        setErrorMessage(null);
+      } else {
+        // Add new vehicle
+        const response = await axios.post(
+          `${API_BASE_URL}/inventory/vehicles/add`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        console.log('Add response:', response.data);
+        setSuccessMessage('Vehicle added successfully');
+        setErrorMessage(null);
       }
 
-      setAddFormSuccess('Vehicle added successfully!');
+      // Clear form and close modal
       setNewVehicle({
         make: '',
         model: '',
@@ -275,16 +410,26 @@ const Inventory: React.FC = () => {
         bodyType: '',
         description: '',
         tags: [],
-        images: []
+        images: [],
+        fuel_type: '',
+        engine: '',
+        condition: '',
+        stock_number: '',
+        location: '',
+        is_featured: false,
       });
-      setTimeout(() => {
-        setShowAddModal(false);
-        setAddFormSuccess(null);
-        fetchVehicles(); // Refetch to include new vehicle
-      }, 2000);
+      setShowAddModal(false);
+      setSelectedVehicle(null);
+      fetchVehicles();
     } catch (error: any) {
-      setAddFormError(error.message || 'An unexpected error occurred.');
-      console.error('Error adding vehicle:', error);
+      console.error('Error submitting vehicle:', error);
+      if (error.response?.data?.error === 'duplicate_vin') {
+        setErrorMessage('A vehicle with this VIN already exists');
+        setSuccessMessage(null);
+      } else {
+        setErrorMessage(error.response?.data?.message || 'Error submitting vehicle');
+        setSuccessMessage(null);
+      }
     }
   };
 
@@ -303,7 +448,13 @@ const Inventory: React.FC = () => {
       bodyType: '',
       description: '',
       tags: [],
-      images: []
+      images: [],
+      fuel_type: '',
+      engine: '',
+      condition: '',
+      stock_number: '',
+      location: '',
+      is_featured: false,
     });
     setAddFormError(null);
     setAddFormSuccess(null);
@@ -324,9 +475,84 @@ const Inventory: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleEdit = (vehicle: Vehicle) => {
+    console.log('Editing vehicle:', vehicle); // Debug log
+    setSelectedVehicle(vehicle);
+    setNewVehicle({
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      price: vehicle.price,
+      mileage: vehicle.mileage,
+      vin: vehicle.vin,
+      exteriorColor: vehicle.exteriorColor,
+      interiorColor: vehicle.interiorColor,
+      transmission: vehicle.transmission,
+      bodyType: vehicle.bodyType,
+      description: vehicle.description,
+      tags: vehicle.tags || [],
+      images: vehicle.images || [], // Keep existing images as URLs
+      fuel_type: vehicle.fuel_type || '',
+      engine: vehicle.engine || '',
+      condition: vehicle.condition || '',
+      stock_number: vehicle.stock_number || '',
+      location: vehicle.location || '',
+      is_featured: vehicle.is_featured || false,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditComplete = () => {
+    setShowEditModal(false);
+    setSelectedVehicle(null);
+    setNewVehicle({
+      make: '',
+      model: '',
+      year: new Date().getFullYear(),
+      price: 0,
+      mileage: 0,
+      vin: '',
+      exteriorColor: '',
+      interiorColor: '',
+      transmission: '',
+      bodyType: '',
+      description: '',
+      tags: [],
+      images: [],
+      fuel_type: '',
+      engine: '',
+      condition: '',
+      stock_number: '',
+      location: '',
+      is_featured: false,
+    });
+    fetchVehicles(); // Refresh the list after edit
+  };
+
+  const handleImageError = (vehicleId: string) => {
+    setImageErrors(prev => ({
+      ...prev,
+      [vehicleId]: true
+    }));
+  };
+
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-      <div className="sm:flex sm:items-center sm:justify-between mb-6">
+    <div className="container mx-auto px-4 py-8">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+          {successMessage}
+        </div>
+      )}
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {errorMessage}
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1>
         <button
           onClick={() => setShowAddModal(true)}
@@ -482,12 +708,19 @@ const Inventory: React.FC = () => {
                   <tr key={vehicle.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0">
-                          <img
-                            className="h-10 w-10 rounded-md object-cover"
-                            src={vehicle.images[0] || 'https://via.placeholder.com/40'}
-                            alt={`${vehicle.make} ${vehicle.model}`}
-                          />
+                        <div className="flex-shrink-0 h-10 w-10">
+                          {vehicle.images && vehicle.images.length > 0 && !imageErrors[vehicle.id] ? (
+                            <img
+                              className="h-10 w-10 rounded-full object-cover"
+                              src={vehicle.images[0]}
+                              alt={`${vehicle.make} ${vehicle.model}`}
+                              onError={() => handleImageError(vehicle.id)}
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                              <ImageIcon className="h-6 w-6 text-gray-400" />
+                            </div>
+                          )}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
@@ -539,7 +772,10 @@ const Inventory: React.FC = () => {
                       {new Date(vehicle.dateAdded).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-blue-700 hover:text-blue-800 mr-3">
+                      <button 
+                        className="text-blue-700 hover:text-blue-800 mr-3"
+                        onClick={() => handleEdit(vehicle)}
+                      >
                         <Edit className="h-5 w-5" />
                       </button>
                       <button
@@ -672,7 +908,7 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="make"
                           id="make"
-                          value={newVehicle.make}
+                          value={selectedVehicle ? selectedVehicle.make : newVehicle.make}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
@@ -686,7 +922,7 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="model"
                           id="model"
-                          value={newVehicle.model}
+                          value={selectedVehicle ? selectedVehicle.model : newVehicle.model}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
@@ -703,7 +939,7 @@ const Inventory: React.FC = () => {
                           type="number"
                           name="year"
                           id="year"
-                          value={newVehicle.year}
+                          value={selectedVehicle ? selectedVehicle.year : newVehicle.year}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
@@ -717,7 +953,7 @@ const Inventory: React.FC = () => {
                           type="number"
                           name="price"
                           id="price"
-                          value={newVehicle.price}
+                          value={selectedVehicle ? selectedVehicle.price : newVehicle.price}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
@@ -731,7 +967,7 @@ const Inventory: React.FC = () => {
                           type="number"
                           name="mileage"
                           id="mileage"
-                          value={newVehicle.mileage}
+                          value={selectedVehicle ? selectedVehicle.mileage : newVehicle.mileage}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
@@ -747,7 +983,7 @@ const Inventory: React.FC = () => {
                         type="text"
                         name="vin"
                         id="vin"
-                        value={newVehicle.vin}
+                        value={selectedVehicle ? selectedVehicle.vin : newVehicle.vin}
                         onChange={handleChange}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
@@ -763,7 +999,7 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="exteriorColor"
                           id="exteriorColor"
-                          value={newVehicle.exteriorColor}
+                          value={selectedVehicle ? selectedVehicle.exteriorColor : newVehicle.exteriorColor}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         />
@@ -776,7 +1012,7 @@ const Inventory: React.FC = () => {
                           type="text"
                           name="interiorColor"
                           id="interiorColor"
-                          value={newVehicle.interiorColor}
+                          value={selectedVehicle ? selectedVehicle.interiorColor : newVehicle.interiorColor}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         />
@@ -789,16 +1025,18 @@ const Inventory: React.FC = () => {
                           Transmission
                         </label>
                         <select
-                          id="transmission"
                           name="transmission"
-                          value={newVehicle.transmission}
+                          id="transmission"
+                          value={selectedVehicle ? selectedVehicle.transmission : newVehicle.transmission}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         >
                           <option value="">Select Transmission</option>
-                          <option value="Automatic">Automatic</option>
-                          <option value="Manual">Manual</option>
-                          <option value="CVT">CVT</option>
+                          <option value="automatic">Automatic</option>
+                          <option value="manual">Manual</option>
+                          <option value="cvt">CVT</option>
+                          <option value="semi_automatic">Semi-Automatic</option>
                         </select>
                       </div>
                       <div>
@@ -806,22 +1044,110 @@ const Inventory: React.FC = () => {
                           Body Type
                         </label>
                         <select
-                          id="bodyType"
                           name="bodyType"
-                          value={newVehicle.bodyType}
+                          id="bodyType"
+                          value={selectedVehicle ? selectedVehicle.bodyType : newVehicle.bodyType}
+                          onChange={handleChange}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
+                        >
+                          <option value="">Select Body Type</option>
+                          <option value="sedan">Sedan</option>
+                          <option value="suv">SUV</option>
+                          <option value="truck">Truck</option>
+                          <option value="coupe">Coupe</option>
+                          <option value="convertible">Convertible</option>
+                          <option value="hatchback">Hatchback</option>
+                          <option value="minivan">Minivan</option>
+                          <option value="van">Van</option>
+                          <option value="wagon">Wagon</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
+                          Fuel Type
+                        </label>
+                        <select
+                          name="fuel_type"
+                          id="fuel_type"
+                          value={selectedVehicle ? selectedVehicle.fuel_type : newVehicle.fuel_type}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         >
-                          <option value="">Select Body Type</option>
-                          <option value="Sedan">Sedan</option>
-                          <option value="SUV">SUV</option>
-                          <option value="Truck">Truck</option>
-                          <option value="Coupe">Coupe</option>
-                          <option value="Convertible">Convertible</option>
-                          <option value="Wagon">Wagon</option>
-                          <option value="Van">Van</option>
+                          <option value="">Select Fuel Type</option>
+                          <option value="gasoline">Gasoline</option>
+                          <option value="diesel">Diesel</option>
+                          <option value="electric">Electric</option>
+                          <option value="hybrid">Hybrid</option>
+                          <option value="plug_in_hybrid">Plug-in Hybrid</option>
                         </select>
                       </div>
+                      <div>
+                        <label htmlFor="engine" className="block text-sm font-medium text-gray-700">
+                          Engine
+                        </label>
+                        <input
+                          type="text"
+                          name="engine"
+                          id="engine"
+                          value={selectedVehicle ? selectedVehicle.engine : newVehicle.engine}
+                          onChange={handleChange}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="condition" className="block text-sm font-medium text-gray-700">
+                          Condition
+                        </label>
+                        <select
+                          name="condition"
+                          id="condition"
+                          value={selectedVehicle ? selectedVehicle.condition : newVehicle.condition}
+                          onChange={handleChange}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        >
+                          <option value="">Select Condition</option>
+                          <option value="new">New</option>
+                          <option value="used">Used</option>
+                          <option value="certified_pre_owned">Certified Pre-Owned</option>
+                          <option value="excellent">Excellent</option>
+                          <option value="good">Good</option>
+                          <option value="fair">Fair</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="stock_number" className="block text-sm font-medium text-gray-700">
+                          Stock Number
+                        </label>
+                        <input
+                          type="text"
+                          name="stock_number"
+                          id="stock_number"
+                          value={selectedVehicle ? selectedVehicle.stock_number : newVehicle.stock_number}
+                          onChange={handleChange}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        name="location"
+                        id="location"
+                        value={selectedVehicle ? selectedVehicle.location : newVehicle.location}
+                        onChange={handleChange}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      />
                     </div>
 
                     <div>
@@ -832,7 +1158,7 @@ const Inventory: React.FC = () => {
                         id="description"
                         name="description"
                         rows={3}
-                        value={newVehicle.description}
+                        value={selectedVehicle ? selectedVehicle.description : newVehicle.description}
                         onChange={handleChange}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       ></textarea>
@@ -842,14 +1168,14 @@ const Inventory: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700">
                         Tags
                       </label>
-                      <div className="mt-2 flex items-center space-x-3">
+                      <div className="mt-2 flex flex-wrap gap-3">
                         <div className="flex items-center">
                           <input
                             id="tag-new"
                             name="tags"
                             type="checkbox"
                             value="new"
-                            checked={newVehicle.tags.includes('new')}
+                            checked={selectedVehicle ? selectedVehicle.tags.includes('new') : newVehicle.tags.includes('new')}
                             onChange={handleTagChange}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
@@ -863,7 +1189,7 @@ const Inventory: React.FC = () => {
                             name="tags"
                             type="checkbox"
                             value="featured"
-                            checked={newVehicle.tags.includes('featured')}
+                            checked={selectedVehicle ? selectedVehicle.tags.includes('featured') : newVehicle.tags.includes('featured')}
                             onChange={handleTagChange}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
@@ -877,7 +1203,7 @@ const Inventory: React.FC = () => {
                             name="tags"
                             type="checkbox"
                             value="price-drop"
-                            checked={newVehicle.tags.includes('price-drop')}
+                            checked={selectedVehicle ? selectedVehicle.tags.includes('price-drop') : newVehicle.tags.includes('price-drop')}
                             onChange={handleTagChange}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
@@ -885,58 +1211,103 @@ const Inventory: React.FC = () => {
                             Price Drop
                           </label>
                         </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Upload Images
-                      </label>
-                      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                        <div className="space-y-1 text-center">
-                          <svg
-                            className="mx-auto h-12 w-12 text-gray-400"
-                            stroke="currentColor"
-                            fill="none"
-                            viewBox="0 0 48 48"
-                            aria-hidden="true"
-                          >
-                            <path
-                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          <div className="flex text-sm text-gray-600">
-                            <label
-                              htmlFor="file-upload"
-                              className="relative cursor-pointer bg-white rounded-md font-medium text-blue-700 hover:text-blue-800 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                            >
-                              <span>Upload files</span>
-                              <input
-                                id="file-upload"
-                                name="images"
-                                type="file"
-                                className="sr-only"
-                                multiple
-                                onChange={handleFileChange}
-                                accept="image/jpeg,image/png,image/gif,image/webp"
-                              />
-                            </label>
-                            <p className="pl-1">or drag and drop</p>
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            PNG, JPG, GIF, WEBP up to 5MB each (max 10 files)
-                          </p>
-                          {newVehicle.images.length > 0 && (
-                            <div className="mt-2 text-sm text-gray-900">
-                              Selected files: {newVehicle.images.map(file => file.name).join(', ')}
-                            </div>
-                          )}
+                        <div className="flex items-center">
+                          <input
+                            id="tag-low-mileage"
+                            name="tags"
+                            type="checkbox"
+                            value="low-mileage"
+                            checked={selectedVehicle ? selectedVehicle.tags.includes('low-mileage') : newVehicle.tags.includes('low-mileage')}
+                            onChange={handleTagChange}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="tag-low-mileage" className="ml-2 block text-sm text-gray-700">
+                            Low Mileage
+                          </label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            id="tag-certified"
+                            name="tags"
+                            type="checkbox"
+                            value="certified"
+                            checked={selectedVehicle ? selectedVehicle.tags.includes('certified') : newVehicle.tags.includes('certified')}
+                            onChange={handleTagChange}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="tag-certified" className="ml-2 block text-sm text-gray-700">
+                            Certified
+                          </label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            id="tag-one-owner"
+                            name="tags"
+                            type="checkbox"
+                            value="one-owner"
+                            checked={selectedVehicle ? selectedVehicle.tags.includes('one-owner') : newVehicle.tags.includes('one-owner')}
+                            onChange={handleTagChange}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="tag-one-owner" className="ml-2 block text-sm text-gray-700">
+                            One Owner
+                          </label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            id="tag-clean-history"
+                            name="tags"
+                            type="checkbox"
+                            value="clean-history"
+                            checked={selectedVehicle ? selectedVehicle.tags.includes('clean-history') : newVehicle.tags.includes('clean-history')}
+                            onChange={handleTagChange}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="tag-clean-history" className="ml-2 block text-sm text-gray-700">
+                            Clean History
+                          </label>
                         </div>
                       </div>
                     </div>
+
+                    <div className="mt-4 flex items-center">
+                      <input
+                        id="is_featured"
+                        name="is_featured"
+                        type="checkbox"
+                        checked={selectedVehicle ? selectedVehicle.is_featured : newVehicle.is_featured}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="is_featured" className="ml-2 block text-sm text-gray-900">
+                        Mark as Featured
+                      </label>
+                    </div>
+
+                    {/* Image upload section */}
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Images
+                      </label>
+                      <div className="grid grid-cols-4 gap-4 mb-4">
+                        {newVehicle.images.map((image, index) => renderImagePreview(image, index))}
+                      </div>
+                      <div className="mt-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageChange}
+                          className="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100"
+                        />
+                      </div>
+                    </div>
+
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                       <button
                         type="submit"
@@ -1005,6 +1376,453 @@ const Inventory: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedVehicle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-4">Edit Vehicle</h2>
+            <form onSubmit={handleAddVehicleSubmit} className="space-y-4">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="make" className="block text-sm font-medium text-gray-700">
+                    Make
+                  </label>
+                  <input
+                    type="text"
+                    name="make"
+                    id="make"
+                    value={selectedVehicle.make}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="model" className="block text-sm font-medium text-gray-700">
+                    Model
+                  </label>
+                  <input
+                    type="text"
+                    name="model"
+                    id="model"
+                    value={selectedVehicle.model}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="year" className="block text-sm font-medium text-gray-700">
+                    Year
+                  </label>
+                  <input
+                    type="number"
+                    name="year"
+                    id="year"
+                    value={selectedVehicle.year}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+                    Price
+                  </label>
+                  <input
+                    type="number"
+                    name="price"
+                    id="price"
+                    value={selectedVehicle.price}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="mileage" className="block text-sm font-medium text-gray-700">
+                    Mileage
+                  </label>
+                  <input
+                    type="number"
+                    name="mileage"
+                    id="mileage"
+                    value={selectedVehicle.mileage}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="vin" className="block text-sm font-medium text-gray-700">
+                  VIN
+                </label>
+                <input
+                  type="text"
+                  name="vin"
+                  id="vin"
+                  value={selectedVehicle.vin}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="exteriorColor" className="block text-sm font-medium text-gray-700">
+                    Exterior Color
+                  </label>
+                  <input
+                    type="text"
+                    name="exteriorColor"
+                    id="exteriorColor"
+                    value={selectedVehicle.exteriorColor}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="interiorColor" className="block text-sm font-medium text-gray-700">
+                    Interior Color
+                  </label>
+                  <input
+                    type="text"
+                    name="interiorColor"
+                    id="interiorColor"
+                    value={selectedVehicle.interiorColor}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="transmission" className="block text-sm font-medium text-gray-700">
+                    Transmission
+                  </label>
+                  <select
+                    name="transmission"
+                    id="transmission"
+                    value={selectedVehicle.transmission}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  >
+                    <option value="">Select Transmission</option>
+                    <option value="automatic">Automatic</option>
+                    <option value="manual">Manual</option>
+                    <option value="cvt">CVT</option>
+                    <option value="semi_automatic">Semi-Automatic</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="bodyType" className="block text-sm font-medium text-gray-700">
+                    Body Type
+                  </label>
+                  <select
+                    name="bodyType"
+                    id="bodyType"
+                    value={selectedVehicle.bodyType}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  >
+                    <option value="">Select Body Type</option>
+                    <option value="sedan">Sedan</option>
+                    <option value="suv">SUV</option>
+                    <option value="truck">Truck</option>
+                    <option value="coupe">Coupe</option>
+                    <option value="convertible">Convertible</option>
+                    <option value="hatchback">Hatchback</option>
+                    <option value="minivan">Minivan</option>
+                    <option value="van">Van</option>
+                    <option value="wagon">Wagon</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
+                    Fuel Type
+                  </label>
+                  <select
+                    name="fuel_type"
+                    id="fuel_type"
+                    value={selectedVehicle.fuel_type}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  >
+                    <option value="">Select Fuel Type</option>
+                    <option value="gasoline">Gasoline</option>
+                    <option value="diesel">Diesel</option>
+                    <option value="electric">Electric</option>
+                    <option value="hybrid">Hybrid</option>
+                    <option value="plug_in_hybrid">Plug-in Hybrid</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="engine" className="block text-sm font-medium text-gray-700">
+                    Engine
+                  </label>
+                  <input
+                    type="text"
+                    name="engine"
+                    id="engine"
+                    value={selectedVehicle.engine}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="condition" className="block text-sm font-medium text-gray-700">
+                    Condition
+                  </label>
+                  <select
+                    name="condition"
+                    id="condition"
+                    value={selectedVehicle.condition}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  >
+                    <option value="">Select Condition</option>
+                    <option value="new">New</option>
+                    <option value="used">Used</option>
+                    <option value="certified_pre_owned">Certified Pre-Owned</option>
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="stock_number" className="block text-sm font-medium text-gray-700">
+                    Stock Number
+                  </label>
+                  <input
+                    type="text"
+                    name="stock_number"
+                    id="stock_number"
+                    value={selectedVehicle.stock_number}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  id="location"
+                  value={selectedVehicle.location}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  rows={3}
+                  value={selectedVehicle.description}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                ></textarea>
+              </div>
+
+              {/* Tags Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Tags
+                </label>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <div className="flex items-center">
+                    <input
+                      id="tag-new"
+                      name="tags"
+                      type="checkbox"
+                      value="new"
+                      checked={selectedVehicle.tags.includes('new')}
+                      onChange={handleTagChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="tag-new" className="ml-2 block text-sm text-gray-700">
+                      New Arrival
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      id="tag-featured"
+                      name="tags"
+                      type="checkbox"
+                      value="featured"
+                      checked={selectedVehicle.tags.includes('featured')}
+                      onChange={handleTagChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="tag-featured" className="ml-2 block text-sm text-gray-700">
+                      Featured
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      id="tag-price-drop"
+                      name="tags"
+                      type="checkbox"
+                      value="price-drop"
+                      checked={selectedVehicle.tags.includes('price-drop')}
+                      onChange={handleTagChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="tag-price-drop" className="ml-2 block text-sm text-gray-700">
+                      Price Drop
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      id="tag-low-mileage"
+                      name="tags"
+                      type="checkbox"
+                      value="low-mileage"
+                      checked={selectedVehicle.tags.includes('low-mileage')}
+                      onChange={handleTagChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="tag-low-mileage" className="ml-2 block text-sm text-gray-700">
+                      Low Mileage
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      id="tag-certified"
+                      name="tags"
+                      type="checkbox"
+                      value="certified"
+                      checked={selectedVehicle.tags.includes('certified')}
+                      onChange={handleTagChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="tag-certified" className="ml-2 block text-sm text-gray-700">
+                      Certified
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      id="tag-one-owner"
+                      name="tags"
+                      type="checkbox"
+                      value="one-owner"
+                      checked={selectedVehicle.tags.includes('one-owner')}
+                      onChange={handleTagChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="tag-one-owner" className="ml-2 block text-sm text-gray-700">
+                      One Owner
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      id="tag-clean-history"
+                      name="tags"
+                      type="checkbox"
+                      value="clean-history"
+                      checked={selectedVehicle.tags.includes('clean-history')}
+                      onChange={handleTagChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="tag-clean-history" className="ml-2 block text-sm text-gray-700">
+                      Clean History
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Image Upload Section */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Vehicle Images
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  {selectedVehicle.images.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={typeof image === 'string' ? image : URL.createObjectURL(image)}
+                        alt={`Vehicle ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Plus className="w-8 h-8 mb-2 text-gray-500" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 10MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      multiple
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Submit and Cancel buttons */}
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedVehicle(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  disabled={loading}
+                >
+                  {loading ? 'Updating...' : 'Update Vehicle'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
