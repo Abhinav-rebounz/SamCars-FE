@@ -1,77 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { User, Car, Calendar, FileText, CreditCard, Heart, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { updateProfile } from '../../services/auth';
+import { fetchPayments } from '../../services/payments';
 
 const AccountPage: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, setUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
-  
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: '',
+    address: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: '',
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
+
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-  
-  // Mock data for the account page
-  const testDrives = [
-    {
-      id: '1',
-      vehicle: '2020 Toyota Camry',
-      date: '2023-10-15',
-      time: '2:00 PM',
-      status: 'Confirmed',
-    },
-    {
-      id: '2',
-      vehicle: '2021 Honda CR-V',
-      date: '2023-10-20',
-      time: '11:00 AM',
-      status: 'Pending',
-    },
-  ];
-  
-  const serviceAppointments = [
-    {
-      id: '1',
-      service: 'Oil Change',
-      vehicle: '2018 Ford F-150',
-      date: '2023-10-18',
-      time: '9:30 AM',
-      status: 'Confirmed',
-    },
-  ];
-  
-  const payments = [
-    {
-      id: '1',
-      description: 'Vehicle Hold Deposit - 2020 Toyota Camry',
-      amount: 500.00,
-      date: '2023-10-10',
-      status: 'Completed',
-    },
-    {
-      id: '2',
-      description: 'Service Payment - Oil Change',
-      amount: 49.99,
-      date: '2023-09-25',
-      status: 'Completed',
-    },
-  ];
-  
-  const documents = [
-    {
-      id: '1',
-      name: 'Purchase Agreement - 2020 Toyota Camry',
-      date: '2023-10-10',
-      type: 'PDF',
-    },
-    {
-      id: '2',
-      name: 'Service Receipt - Oil Change',
-      date: '2023-09-25',
-      type: 'PDF',
-    },
-  ];
+
+  // Fetch payments from backend
+  useEffect(() => {
+    const fetchUserPayments = async () => {
+      setPaymentsLoading(true);
+      setPaymentsError(null);
+      try {
+        const response = await fetchPayments({ user_id: user?.id });
+        if (response.success && response.data && Array.isArray(response.data.data)) {
+          setPayments(response.data.data);
+        } else {
+          setPaymentsError(response.error || 'Failed to fetch payments');
+        }
+      } catch (err) {
+        setPaymentsError('Failed to fetch payments');
+      } finally {
+        setPaymentsLoading(false);
+      }
+    };
+    if (user?.id) fetchUserPayments();
+  }, [user?.id]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -111,32 +88,6 @@ const AccountPage: React.FC = () => {
                   </li>
                   <li>
                     <button
-                      onClick={() => setActiveTab('test-drives')}
-                      className={`w-full flex items-center px-4 py-2 rounded-md ${
-                        activeTab === 'test-drives'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Car className="h-5 w-5 mr-3" />
-                      <span>Test Drives</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveTab('service')}
-                      className={`w-full flex items-center px-4 py-2 rounded-md ${
-                        activeTab === 'service'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Calendar className="h-5 w-5 mr-3" />
-                      <span>Service Appointments</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button
                       onClick={() => setActiveTab('payments')}
                       className={`w-full flex items-center px-4 py-2 rounded-md ${
                         activeTab === 'payments'
@@ -147,28 +98,6 @@ const AccountPage: React.FC = () => {
                       <CreditCard className="h-5 w-5 mr-3" />
                       <span>Payments</span>
                     </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveTab('documents')}
-                      className={`w-full flex items-center px-4 py-2 rounded-md ${
-                        activeTab === 'documents'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <FileText className="h-5 w-5 mr-3" />
-                      <span>Documents</span>
-                    </button>
-                  </li>
-                  <li>
-                    <Link
-                      to="/wishlist"
-                      className="w-full flex items-center px-4 py-2 rounded-md text-gray-700 hover:bg-gray-100"
-                    >
-                      <Heart className="h-5 w-5 mr-3" />
-                      <span>Wishlist</span>
-                    </Link>
                   </li>
                   <li>
                     <button
@@ -192,42 +121,83 @@ const AccountPage: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
                   
-                  <form>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    setProfileError(null);
+                    setProfileSuccess(null);
+                    setProfileLoading(true);
+                    if (!profileForm.name || !profileForm.email) {
+                      setProfileError('Name and email are required.');
+                      setProfileLoading(false);
+                      return;
+                    }
+                    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmNewPassword) {
+                      setProfileError('New passwords do not match.');
+                      setProfileLoading(false);
+                      return;
+                    }
+                    const [firstName, ...rest] = profileForm.name.split(' ');
+                    const lastName = rest.join(' ');
+                    const response = await updateProfile({
+                      first_name: firstName,
+                      last_name: lastName,
+                      email: profileForm.email,
+                      phone: profileForm.phone,
+                      current_password: profileForm.currentPassword,
+                      new_password: profileForm.newPassword,
+                    });
+                    if (response.success && response.user) {
+                      setUser(response.user);
+                      setProfileSuccess('Profile updated successfully.');
+                    } else {
+                      setProfileError(response.error || 'Failed to update profile.');
+                    }
+                    setProfileLoading(false);
+                  }}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                       <div>
                         <label className="form-label">Full Name</label>
                         <input
                           type="text"
-                          defaultValue={user?.name}
+                          value={profileForm.name}
+                          onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
                           className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                          required
+                          disabled={profileLoading}
                         />
                       </div>
                       <div>
                         <label className="form-label">Email Address</label>
                         <input
                           type="email"
-                          defaultValue={user?.email}
+                          value={profileForm.email}
+                          onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
                           className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                          required
+                          disabled={profileLoading}
                         />
                       </div>
                       <div>
                         <label className="form-label">Phone Number</label>
                         <input
                           type="tel"
-                          defaultValue="(555) 123-4567"
+                          value={profileForm.phone}
+                          onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))}
                           className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                          disabled={profileLoading}
                         />
                       </div>
                       <div>
                         <label className="form-label">Address</label>
                         <input
                           type="text"
-                          defaultValue="123 Main St, Anytown, USA"
+                          value={profileForm.address}
+                          onChange={e => setProfileForm(f => ({ ...f, address: e.target.value }))}
                           className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                          disabled={profileLoading}
                         />
                       </div>
                     </div>
-                    
                     <div className="border-t border-gray-200 pt-6 mt-6">
                       <h3 className="font-semibold mb-4">Change Password</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -235,7 +205,10 @@ const AccountPage: React.FC = () => {
                           <label className="form-label">Current Password</label>
                           <input
                             type="password"
+                            value={profileForm.currentPassword}
+                            onChange={e => setProfileForm(f => ({ ...f, currentPassword: e.target.value }))}
                             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                            disabled={profileLoading}
                           />
                         </div>
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -243,297 +216,77 @@ const AccountPage: React.FC = () => {
                             <label className="form-label">New Password</label>
                             <input
                               type="password"
+                              value={profileForm.newPassword}
+                              onChange={e => setProfileForm(f => ({ ...f, newPassword: e.target.value }))}
                               className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                              disabled={profileLoading}
                             />
                           </div>
                           <div>
                             <label className="form-label">Confirm New Password</label>
                             <input
                               type="password"
+                              value={profileForm.confirmNewPassword}
+                              onChange={e => setProfileForm(f => ({ ...f, confirmNewPassword: e.target.value }))}
                               className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                              disabled={profileLoading}
                             />
                           </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="mt-6">
-                      <button type="submit" className="btn-primary">
-                        Save Changes
-                      </button>
+                    {(profileError || profileSuccess) && (
+                      <div className={`mt-4 p-2 rounded ${profileError ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>{profileError || profileSuccess}</div>
+                    )}
+                    <div className="flex justify-end mt-6">
+                      <button type="submit" className="btn-primary" disabled={profileLoading}>{profileLoading ? 'Saving...' : 'Save Changes'}</button>
                     </div>
                   </form>
                 </div>
               )}
-              
-              {/* Test Drives Tab */}
-              {activeTab === 'test-drives' && (
-                <div>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Test Drive Appointments</h2>
-                    <Link to="/inventory" className="btn-outline">
-                      Schedule New Test Drive
-                    </Link>
-                  </div>
-                  
-                  {testDrives.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Vehicle
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Date & Time
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {testDrives.map((appointment) => (
-                            <tr key={appointment.id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{appointment.vehicle}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{new Date(appointment.date).toLocaleDateString()}</div>
-                                <div className="text-sm text-gray-500">{appointment.time}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  appointment.status === 'Confirmed' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {appointment.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <button className="text-blue-700 hover:text-blue-800 mr-3">
-                                  Reschedule
-                                </button>
-                                <button className="text-red-600 hover:text-red-700">
-                                  Cancel
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg">
-                      <Car className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">No test drives scheduled</h3>
-                      <p className="text-gray-500 mb-4">You haven't scheduled any test drives yet.</p>
-                      <Link to="/inventory" className="btn-primary">
-                        Browse Inventory
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Service Appointments Tab */}
-              {activeTab === 'service' && (
-                <div>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Service Appointments</h2>
-                    <Link to="/services" className="btn-outline">
-                      Schedule New Service
-                    </Link>
-                  </div>
-                  
-                  {serviceAppointments.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Service
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Vehicle
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Date & Time
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {serviceAppointments.map((appointment) => (
-                            <tr key={appointment.id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{appointment.service}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{appointment.vehicle}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{new Date(appointment.date).toLocaleDateString()}</div>
-                                <div className="text-sm text-gray-500">{appointment.time}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                  {appointment.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <button className="text-blue-700 hover:text-blue-800 mr-3">
-                                  Reschedule
-                                </button>
-                                <button className="text-red-600 hover:text-red-700">
-                                  Cancel
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg">
-                      <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">No service appointments</h3>
-                      <p className="text-gray-500 mb-4">You haven't scheduled any service appointments yet.</p>
-                      <Link to="/services" className="btn-primary">
-                        View Services
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
-              
+
               {/* Payments Tab */}
               {activeTab === 'payments' && (
                 <div>
-                  <h2 className="text-xl font-semibold mb-6">Payment History</h2>
-                  
-                  {payments.length > 0 ? (
+                  <h2 className="text-xl font-semibold mb-6">My Payments</h2>
+                  {paymentsLoading ? (
+                    <div className="text-center py-8 text-gray-500">Loading payments...</div>
+                  ) : paymentsError ? (
+                    <div className="text-center py-8 text-red-500">{paymentsError}</div>
+                  ) : payments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No payments found.</div>
+                  ) : (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Description
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Amount
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Date
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Receipt
-                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {payments.map((payment) => (
                             <tr key={payment.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">{payment.description}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">${payment.amount.toFixed(2)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">{new Date(payment.date).toLocaleDateString()}</td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{payment.description}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">${payment.amount.toFixed(2)}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{new Date(payment.date).toLocaleDateString()}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  payment.status === 'Completed' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : payment.status === 'Pending'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
                                   {payment.status}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <button className="text-blue-700 hover:text-blue-800">
-                                  Download
-                                </button>
-                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg">
-                      <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">No payment history</h3>
-                      <p className="text-gray-500">You haven't made any payments yet.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Documents Tab */}
-              {activeTab === 'documents' && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-6">Documents</h2>
-                  
-                  {documents.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Document Name
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Date
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Type
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {documents.map((document) => (
-                            <tr key={document.id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{document.name}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{new Date(document.date).toLocaleDateString()}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{document.type}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <button className="text-blue-700 hover:text-blue-800 mr-3">
-                                  View
-                                </button>
-                                <button className="text-blue-700 hover:text-blue-800">
-                                  Download
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg">
-                      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">No documents</h3>
-                      <p className="text-gray-500">You don't have any documents yet.</p>
                     </div>
                   )}
                 </div>

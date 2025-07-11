@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   Calendar, 
@@ -14,12 +14,14 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { getVehicleById } from '../../data/vehicles';
+import { getVehicleById } from '../../services/vehicle';
 import { useAuth } from '../../contexts/AuthContext';
 
 const VehicleDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const vehicle = getVehicleById(id || '');
+  const [vehicle, setVehicle] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
   
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -28,13 +30,34 @@ const VehicleDetailsPage: React.FC = () => {
   const [testDriveTime, setTestDriveTime] = useState('');
   const [testDriveSubmitted, setTestDriveSubmitted] = useState(false);
   
-  if (!vehicle) {
+  useEffect(() => {
+    const fetchVehicle = async () => {
+      if (!id) {
+        setError('Vehicle not found');
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      const response = await getVehicleById(id);
+      if (response.success && response.vehicle) {
+        setVehicle(response.vehicle);
+      } else {
+        setError(response.error || 'Vehicle not found');
+      }
+      setLoading(false);
+    };
+    fetchVehicle();
+  }, [id]);
+  
+  if (loading) {
+    return <div className="container-custom py-16 text-center">Loading vehicle details...</div>;
+  }
+  if (error || !vehicle) {
     return (
       <div className="container-custom py-16 text-center">
         <h1 className="heading-lg mb-4">Vehicle Not Found</h1>
-        <p className="text-gray-600 mb-8">
-          The vehicle you're looking for doesn't exist or has been removed.
-        </p>
+        <p className="text-gray-600 mb-8">{error || "The vehicle you're looking for doesn't exist or has been removed."}</p>
         <Link to="/inventory" className="btn-primary">
           Back to Inventory
         </Link>
@@ -167,7 +190,7 @@ const VehicleDetailsPage: React.FC = () => {
               
               {/* Thumbnail Images */}
               <div className="flex p-2 overflow-x-auto">
-                {vehicle.images.map((image, index) => (
+                {vehicle.images.map((image: string, index: number) => (
                   <div 
                     key={index}
                     className={`w-24 h-16 flex-shrink-0 mx-1 cursor-pointer ${
@@ -240,7 +263,7 @@ const VehicleDetailsPage: React.FC = () => {
                 
                 <h3 className="font-semibold mb-2">Features</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {vehicle.features.map((feature, index) => (
+                  {vehicle.features.map((feature: string, index: number) => (
                     <div key={index} className="flex items-center">
                       <Check className="h-4 w-4 text-green-600 mr-2" />
                       <span className="text-gray-700">{feature}</span>

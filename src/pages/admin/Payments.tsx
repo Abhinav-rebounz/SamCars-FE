@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, 
   Download, 
@@ -9,6 +9,7 @@ import {
   RefreshCw,
   FileText
 } from 'lucide-react';
+import { fetchPayments, addManualPayment } from '../../services/payments';
 
 const Payments: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,69 +19,35 @@ const Payments: React.FC = () => {
   const [filterType, setFilterType] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
   
-  // Mock data for payments
-  const payments = [
-    {
-      id: '1',
-      customer: 'John Smith',
-      email: 'john.smith@example.com',
-      type: 'Vehicle Hold',
-      description: 'Hold deposit for 2020 Toyota Camry',
-      amount: 500.00,
-      date: '2023-10-15',
-      status: 'Completed',
-      paymentMethod: 'Credit Card',
-      transactionId: 'TXN123456789',
-    },
-    {
-      id: '2',
-      customer: 'Sarah Johnson',
-      email: 'sarah.j@example.com',
-      type: 'Service',
-      description: 'Oil Change and Tire Rotation',
-      amount: 89.99,
-      date: '2023-10-14',
-      status: 'Completed',
-      paymentMethod: 'Credit Card',
-      transactionId: 'TXN987654321',
-    },
-    {
-      id: '3',
-      customer: 'Michael Brown',
-      email: 'mbrown@example.com',
-      type: 'Vehicle Purchase',
-      description: 'Down payment for 2019 Ford F-150',
-      amount: 5000.00,
-      date: '2023-10-12',
-      status: 'Completed',
-      paymentMethod: 'Bank Transfer',
-      transactionId: 'TXN456789123',
-    },
-    {
-      id: '4',
-      customer: 'Emily Davis',
-      email: 'emily.d@example.com',
-      type: 'Service',
-      description: 'Brake Service',
-      amount: 249.99,
-      date: '2023-10-10',
-      status: 'Pending',
-      paymentMethod: 'Credit Card',
-      transactionId: 'TXN789123456',
-    },
-    {
-      id: '5',
-      customer: 'Robert Wilson',
-      email: 'rwilson@example.com',
-      type: 'Vehicle Hold',
-      description: 'Hold deposit for 2021 Honda CR-V',
-      amount: 500.00,
-      date: '2023-10-08',
-      status: 'Refunded',
-      paymentMethod: 'Credit Card',
-      transactionId: 'TXN321654987',
-    },
-  ];
+  // 2. Replace mock payments data with real data and loading/error state
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ user_id: '', amount: '', payment_method: '', description: '', status: 'completed', date: '', });
+  const [addFormError, setAddFormError] = useState<string | null>(null);
+  const [addFormLoading, setAddFormLoading] = useState(false);
+
+  const fetchAllPayments = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetchPayments();
+      if (response.success && response.data && Array.isArray(response.data.data)) {
+        setPayments(response.data.data);
+      } else {
+        setError(response.error || 'Failed to fetch payments');
+      }
+    } catch (err) {
+      setError('Failed to fetch payments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllPayments();
+  }, []);
   
   // Filter payments based on search term and filters
   const filteredPayments = payments.filter(payment => {
@@ -144,6 +111,12 @@ const Payments: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Payment Manager</h1>
         <div className="mt-3 sm:mt-0 flex space-x-3">
           <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Add Manual Payment
+          </button>
+          <button
             onClick={handleExport}
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
@@ -205,111 +178,123 @@ const Payments: React.FC = () => {
       {/* Payments Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('customer')}
-                >
-                  <div className="flex items-center">
-                    Customer
-                    {sortField === 'customer' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('description')}
-                >
-                  <div className="flex items-center">
-                    Description
-                    {sortField === 'description' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('amount')}
-                >
-                  <div className="flex items-center">
-                    Amount
-                    {sortField === 'amount' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('date')}
-                >
-                  <div className="flex items-center">
-                    Date
-                    {sortField === 'date' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Status
-                </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sortedPayments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{payment.customer}</div>
-                    <div className="text-sm text-gray-500">{payment.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{payment.description}</div>
-                    <div className="text-sm text-gray-500">{payment.type}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${payment.amount.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(payment.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      payment.status === 'Completed' 
-                        ? 'bg-green-100 text-green-800' 
-                        : payment.status === 'Pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {payment.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => handleViewPayment(payment)}
-                      className="text-blue-700 hover:text-blue-800 mr-3"
-                    >
-                      View
-                    </button>
-                    <button className="text-blue-700 hover:text-blue-800">
-                      Receipt
-                    </button>
-                  </td>
+          {/* 6. Add skeleton loader, empty, and error states for the payments table */}
+          {loading ? (
+            <div className="p-4 text-center text-gray-500">Loading payments...</div>
+          ) : error ? (
+            <div className="p-4 text-center text-red-500">{error}</div>
+          ) : !loading && payments.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">No payments found.</div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('customer')}
+                  >
+                    <div className="flex items-center">
+                      Customer
+                      {sortField === 'customer' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('description')}
+                  >
+                    <div className="flex items-center">
+                      Description
+                      {sortField === 'description' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('amount')}
+                  >
+                    <div className="flex items-center">
+                      Amount
+                      {sortField === 'amount' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => handleSort('date')}
+                  >
+                    <div className="flex items-center">
+                      Date
+                      {sortField === 'date' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedPayments.map((payment) => (
+                  <tr key={payment.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{payment.customer}</div>
+                      <div className="text-sm text-gray-500">{payment.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{payment.description}</div>
+                      <div className="text-sm text-gray-500">{payment.type}</div>
+                      {payment.is_manual && (
+                        <span className="ml-2 px-2 py-0.5 text-xs font-semibold rounded bg-yellow-100 text-yellow-800">Manual</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      ${payment.amount.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(payment.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        payment.status === 'Completed' 
+                          ? 'bg-green-100 text-green-800' 
+                          : payment.status === 'Pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {payment.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button 
+                        onClick={() => handleViewPayment(payment)}
+                        className="text-blue-700 hover:text-blue-800 mr-3"
+                      >
+                        View
+                      </button>
+                      <button className="text-blue-700 hover:text-blue-800">
+                        Receipt
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
         
         {/* Pagination */}
@@ -444,6 +429,81 @@ const Payments: React.FC = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 4. Add Add Manual Payment Modal */}
+      {showAddModal && (
+        <div className="fixed z-10 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setAddFormError(null);
+                setAddFormLoading(true);
+                if (!addForm.user_id || !addForm.amount || !addForm.payment_method || !addForm.description || !addForm.status) {
+                  setAddFormError('All fields are required.');
+                  setAddFormLoading(false);
+                  return;
+                }
+                const response = await addManualPayment({
+                  user_id: addForm.user_id,
+                  amount: parseFloat(addForm.amount),
+                  payment_method: addForm.payment_method,
+                  description: addForm.description,
+                  status: addForm.status,
+                  date: addForm.date,
+                });
+                if (response.success) {
+                  setShowAddModal(false);
+                  setAddForm({ user_id: '', amount: '', payment_method: '', description: '', status: 'completed', date: '', });
+                  fetchAllPayments();
+                } else {
+                  setAddFormError(response.error || 'Failed to add manual payment');
+                }
+                setAddFormLoading(false);
+              }} className="p-6 space-y-4">
+                <h2 className="text-xl font-semibold mb-4">Add Manual Payment</h2>
+                {addFormError && <div className="text-red-500 bg-red-50 border border-red-200 rounded p-2">{addFormError}</div>}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">User ID *</label>
+                  <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm" value={addForm.user_id} onChange={e => setAddForm(f => ({ ...f, user_id: e.target.value }))} required disabled={addFormLoading} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Amount *</label>
+                  <input type="number" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm" value={addForm.amount} onChange={e => setAddForm(f => ({ ...f, amount: e.target.value }))} required disabled={addFormLoading} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Payment Method *</label>
+                  <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm" value={addForm.payment_method} onChange={e => setAddForm(f => ({ ...f, payment_method: e.target.value }))} required disabled={addFormLoading} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Description *</label>
+                  <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm" value={addForm.description} onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))} required disabled={addFormLoading} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status *</label>
+                  <select className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm" value={addForm.status} onChange={e => setAddForm(f => ({ ...f, status: e.target.value }))} required disabled={addFormLoading}>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm" value={addForm.date} onChange={e => setAddForm(f => ({ ...f, date: e.target.value }))} disabled={addFormLoading} />
+                </div>
+                <div className="flex justify-end space-x-2 mt-4">
+                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800" disabled={addFormLoading}>{addFormLoading ? 'Adding...' : 'Add Payment'}</button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

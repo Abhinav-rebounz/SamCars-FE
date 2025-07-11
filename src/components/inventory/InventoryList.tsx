@@ -70,7 +70,25 @@ const InventoryList: React.FC = () => {
     fetchVehicles();
   }, [filters]);
 
-  if (loading) return <div className="flex justify-center items-center h-64">Loading...</div>;
+  // 1. Add skeleton loader for loading state
+  if (loading) return (
+    <div className="space-y-4">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="animate-pulse flex space-x-4 p-4 bg-gray-100 rounded">
+          <div className="rounded bg-gray-300 h-32 w-48" />
+          <div className="flex-1 space-y-2 py-1">
+            <div className="h-6 bg-gray-300 rounded w-1/2" />
+            <div className="h-4 bg-gray-200 rounded w-1/3" />
+            <div className="h-4 bg-gray-200 rounded w-1/4" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  // 2. Add 'No vehicles found' placeholder for empty state
+  if (!loading && !error && vehicles.length === 0) {
+    return <div className="text-center py-8 text-gray-500">No vehicles found.</div>;
+  }
   if (error) return <div className="text-red-500 p-4">{error}</div>;
 
   return (

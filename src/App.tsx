@@ -23,6 +23,7 @@ import AdminPayments from './pages/admin/Payments';
 import AdminAuctions from './pages/admin/Auctions';
 import AdminServices from './pages/admin/Services';
 import AdminLogin from './pages/admin/Login';
+import AdminProfile from './pages/admin/Profile';
 
 // Context Providers
 import { AuthProvider } from './contexts/AuthContext';
@@ -56,6 +57,7 @@ function App() {
             <Route path="payments" element={<AdminPayments />} />
             <Route path="auctions" element={<AdminAuctions />} />
             <Route path="services" element={<AdminServices />} />
+            <Route path="profile" element={<AdminProfile />} />
           </Route>
         </Routes>
       </CartProvider>

@@ -12,32 +12,16 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import api from '../../services/api';
 import axios from 'axios';
+import { getInventory, deleteVehicle } from '../../services/inventory';
+import { Vehicle as VehicleType } from '../../types/vehicle';
 
-// Define a type for vehicle data
-interface Vehicle {
-  id: string;
-  make: string;
-  model: string;
-  year: number;
-  price: number;
-  mileage: number;
-  vin: string;
+type Vehicle = VehicleType & {
+  isSold: boolean;
+  dateAdded: string;
   exteriorColor: string;
   interiorColor: string;
-  transmission: string;
   bodyType: string;
-  description: string;
-  isSold: boolean;
-  tags: string[];
-  images: string[];
-  dateAdded: string;
-  fuel_type?: string;
-  engine?: string;
-  condition?: string;
-  stock_number?: string;
-  location?: string;
-  is_featured: boolean;
-}
+};
 
 // Define pagination data from API
 interface Pagination {
@@ -62,6 +46,7 @@ interface NewVehicle {
   transmission: string;
   bodyType: string;
   description: string;
+  status: string;
   tags: string[];
   images: (File | string)[]; // Allow both File objects and URLs
   fuel_type: string;
@@ -108,6 +93,7 @@ const Inventory: React.FC = () => {
     transmission: '',
     bodyType: '',
     description: '',
+    status: 'available',
     tags: [],
     images: [],
     fuel_type: '',
@@ -123,57 +109,41 @@ const Inventory: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({
+      const filters = {
         search: searchTerm,
         sort_by: sortField,
         sort_order: sortDirection,
-        page: currentPage.toString(),
-        limit: itemsPerPage.toString(),
+        page: currentPage,
+        limit: itemsPerPage,
         ...(filterStatus && { status: filterStatus }),
-      });
-
-      const response = await api.get(`${API_BASE_URL}${API_ENDPOINTS.GET_INVENTORY}?${params}`, {
-        headers: {
-          'Authorization': localStorage.getItem('token') || ''
-        }
-      });
-
-      const responseData = response.data;
-      if (responseData.status !== 'success') {
-        throw new Error(responseData.message || 'Failed to fetch vehicles');
+      };
+      const response = await getInventory(filters);
+      if (response.success && response.vehicles) {
+        setVehicles(response.vehicles.map((v) => ({
+          ...v,
+          isSold: v.status !== 'available',
+          dateAdded: v.created_at || new Date().toISOString(),
+          exteriorColor: v.exterior_color || '',
+          interiorColor: v.interior_color || '',
+          bodyType: v.body_type || '',
+          vin: v.vin || '',
+          transmission: v.transmission || '',
+          description: v.description || '',
+          tags: v.tags ?? [],
+          images: v.images ?? [],
+          fuel_type: v.fuel_type || '',
+          engine: v.engine || '',
+          condition: v.condition || '',
+          stock_number: v.stock_number || '',
+          location: v.location || '',
+          is_featured: v.is_featured || false,
+        })));
+        setPagination(response.pagination);
+      } else {
+        setError(response.error || 'Failed to fetch vehicles');
       }
-
-      // Map API response to Vehicle interface
-      const mappedVehicles: Vehicle[] = responseData.data.vehicles.map((v: any) => ({
-        id: v.id.toString(),
-        make: v.make,
-        model: v.model,
-        year: v.year,
-        price: v.price,
-        mileage: v.mileage,
-        vin: v.vin || '',
-        exteriorColor: v.exterior_color || '',
-        interiorColor: v.interior_color || '',
-        transmission: v.transmission || '',
-        bodyType: v.body_type || '',
-        description: v.description || '',
-        isSold: v.status !== 'available',
-        tags: v.tags || [],
-        images: v.image_url ? [v.image_url] : [],
-        dateAdded: v.date_added || new Date().toISOString(),
-        fuel_type: v.fuel_type || '',
-        engine: v.engine || '',
-        condition: v.condition || '',
-        stock_number: v.stock_number || '',
-        location: v.location || '',
-        is_featured: v.is_featured || false,
-      }));
-
-      setVehicles(mappedVehicles);
-      setPagination(responseData.data.pagination);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch vehicles');
-      console.error('Error fetching vehicles:', err);
+    } catch (err) {
+      setError('Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
@@ -230,18 +200,14 @@ const Inventory: React.FC = () => {
   const confirmDelete = async () => {
     if (!selectedVehicleId) return;
     try {
-      const response = await api.delete(`${API_BASE_URL}${API_ENDPOINTS.DELETE_VEHICLE(selectedVehicleId)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await deleteVehicle(selectedVehicleId);
       
-      if (response.data.status === 'success') {
+      if (response.success) {
         setShowDeleteModal(false);
         setSelectedVehicleId(null);
         await fetchVehicles(); // Refetch to sync with backend
       } else {
-        setError(response.data.message || 'Failed to delete vehicle');
+        setError(response.error || 'Failed to delete vehicle');
       }
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Failed to delete vehicle');
@@ -347,6 +313,17 @@ const Inventory: React.FC = () => {
       
       // Add all vehicle data to formData
       Object.entries(newVehicle).forEach(([key, value]) => {
+        // Map camelCase field names to snake_case for backend
+        const fieldNameMap: { [key: string]: string } = {
+          bodyType: 'body_type',
+          exteriorColor: 'exterior_color',
+          interiorColor: 'interior_color'
+        };
+        
+        const fieldName = fieldNameMap[key] || key;
+        
+        console.log(`Mapping field: ${key} -> ${fieldName}, value:`, value);
+        
         if (key === 'images') {
           // Handle images - only send new files, keep existing URLs
           const images = value as (File | string)[];
@@ -358,11 +335,17 @@ const Inventory: React.FC = () => {
             }
           });
         } else if (key === 'tags') {
-          formData.append(key, JSON.stringify(value));
+          formData.append(fieldName, JSON.stringify(value));
         } else {
-          formData.append(key, value.toString());
+          formData.append(fieldName, value.toString());
         }
       });
+      
+      // Debug: Log all FormData entries
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
 
       if (selectedVehicle) {
         // Update existing vehicle
@@ -382,7 +365,7 @@ const Inventory: React.FC = () => {
       } else {
         // Add new vehicle
         const response = await axios.post(
-          `${API_BASE_URL}/inventory/vehicles/add`,
+          `${API_BASE_URL}/inventory/add-vehicle`,
           formData,
           {
             headers: {
@@ -409,6 +392,7 @@ const Inventory: React.FC = () => {
         transmission: '',
         bodyType: '',
         description: '',
+        status: 'available',
         tags: [],
         images: [],
         fuel_type: '',
@@ -447,6 +431,7 @@ const Inventory: React.FC = () => {
       transmission: '',
       bodyType: '',
       description: '',
+      status: 'available',
       tags: [],
       images: [],
       fuel_type: '',
@@ -490,8 +475,9 @@ const Inventory: React.FC = () => {
       transmission: vehicle.transmission,
       bodyType: vehicle.bodyType,
       description: vehicle.description,
-      tags: vehicle.tags || [],
-      images: vehicle.images || [], // Keep existing images as URLs
+      status: vehicle.isSold ? 'sold' : 'available',
+      tags: vehicle.tags ?? [],
+      images: vehicle.images ?? [], // Keep existing images as URLs
       fuel_type: vehicle.fuel_type || '',
       engine: vehicle.engine || '',
       condition: vehicle.condition || '',
@@ -517,6 +503,7 @@ const Inventory: React.FC = () => {
       transmission: '',
       bodyType: '',
       description: '',
+      status: 'available',
       tags: [],
       images: [],
       fuel_type: '',
@@ -614,8 +601,16 @@ const Inventory: React.FC = () => {
 
       {/* Loading and Error States */}
       {loading && (
-        <div className="text-center py-4">
-          <p className="text-gray-500">Loading vehicles...</p>
+        <div className="space-y-4">
+          {[...Array(itemsPerPage)].map((_, i) => (
+            <div key={i} className="animate-pulse flex space-x-4 p-4 bg-gray-100 rounded">
+              <div className="rounded-full bg-gray-300 h-10 w-10" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-4 bg-gray-300 rounded w-1/4" />
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {error && (
@@ -626,6 +621,9 @@ const Inventory: React.FC = () => {
       )}
 
       {/* Inventory Table */}
+      {!loading && !error && vehicles.length === 0 && (
+        <div className="text-center py-8 text-gray-500">No vehicles found.</div>
+      )}
       {!loading && !error && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
@@ -752,14 +750,14 @@ const Inventory: React.FC = () => {
                             Available
                           </span>
                         )}
-                        {vehicle.tags.length > 0 && (
+                        {(vehicle.tags && vehicle.tags.length > 0) && (
                           <div className="ml-2 flex space-x-1">
-                            {vehicle.tags.includes('new') && (
+                            {vehicle.tags?.includes('new') && (
                               <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                 New
                               </span>
                             )}
-                            {vehicle.tags.includes('featured') && (
+                            {vehicle.tags?.includes('featured') && (
                               <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
                                 Featured
                               </span>

@@ -1,4 +1,3 @@
-// src/contexts/AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { login as loginService, register as registerService, logout as logoutService } from '../services/auth';
 
@@ -6,6 +5,7 @@ interface User {
   id: string;
   first_name: string;
   last_name: string;
+  name: string;
   email: string;
   role: 'customer' | 'admin';
 }
@@ -14,9 +14,13 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (firstName: string, lastName: string, email: string, password: string) => Promise<boolean>;
+  isLoading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (firstName: string, lastName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  clearError: () => void;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,7 +31,8 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -41,22 +46,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem('token');
       }
     }
-    setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    setIsLoading(true);
+    setError(null);
+
     try {
       const result = await loginService(email, password);
-      if (result.success) {
-        setUser(result.user);
-        localStorage.setItem('user', JSON.stringify(result.user));
-        localStorage.setItem('token', result.token);
-        return true;
+      
+      if (result.success && result.user) {
+        setUser({
+          ...result.user,
+          role: result.user.role as 'customer' | 'admin'
+        });
+        return { success: true };
+      } else {
+        setError(result.error || 'Login failed');
+        return { success: false, error: result.error || 'Login failed' };
       }
-      return false;
-    } catch (error) {
-      console.error('Login failed:', error);
-      return false;
+    } catch (err) {
+      const errorMessage = 'Login failed. Please try again.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,34 +79,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     lastName: string,
     email: string,
     password: string
-  ): Promise<boolean> => {
+  ): Promise<{ success: boolean; error?: string }> => {
+    setIsLoading(true);
+    setError(null);
+
     try {
       const result = await registerService(firstName, lastName, email, password);
-      if (result.success) {
-        // Ensure default role is 'customer' if not provided
-        const newUser = { ...result.user, role: result.user.role || 'customer' };
-        setUser(newUser);
-        localStorage.setItem('user', JSON.stringify(newUser));
-        localStorage.setItem('token', result.token);
-        return true;
+      
+      if (result.success && result.user) {
+        setUser({
+          ...result.user,
+          role: result.user.role as 'customer' | 'admin'
+        });
+        return { success: true };
+      } else {
+        setError(result.error || 'Registration failed');
+        return { success: false, error: result.error || 'Registration failed' };
       }
-      return false;
-    } catch (error) {
-      console.error('Registration failed:', error);
-      return false;
+    } catch (err) {
+      const errorMessage = 'Registration failed. Please try again.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = () => {
     logoutService();
     setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    setError(null);
   };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+  const clearError = () => {
+    setError(null);
+  };
 
   return (
     <AuthContext.Provider
@@ -100,9 +121,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         user,
         isAuthenticated: !!user,
         isAdmin: user?.role === 'admin',
+        isLoading,
+        error,
         login,
         register,
         logout,
+        clearError,
+        setUser,
       }}
     >
       {children}

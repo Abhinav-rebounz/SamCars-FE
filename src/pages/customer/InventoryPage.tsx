@@ -3,6 +3,8 @@ import { Filter, SlidersHorizontal } from 'lucide-react';
 import VehicleCard from '../../components/VehicleCard';
 import axios from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+import { getInventory } from '../../services/inventory';
+import { Vehicle as VehicleType } from '../../types/vehicle';
 
 interface Vehicle {
   id: number;
@@ -56,16 +58,12 @@ const InventoryPage: React.FC = () => {
     const fetchVehicles = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.GET_INVENTORY}`);
-        const apiVehicles = response.data.data?.vehicles || [];
-        const normalizedVehicles = apiVehicles.map((v: any) => ({
+        const response = await getInventory();
+        const apiVehicles = response.success && response.vehicles ? response.vehicles : [];
+        const normalizedVehicles = apiVehicles.map((v: VehicleType) => ({
           ...v,
-          images: v.image_url ? [v.image_url] : [],
-          tags: Array.isArray(v.tags)
-            ? v.tags
-            : typeof v.tags === 'string'
-              ? JSON.parse(v.tags)
-              : [],
+          images: v.images ?? [],
+          tags: v.tags ?? [],
         }));
         setVehicles(normalizedVehicles);
         setLoading(false);
@@ -189,10 +187,32 @@ const InventoryPage: React.FC = () => {
     setSortBy('newest');
   };
 
+  // 1. Import getInventory from services/inventory
+  // 2. Use getInventory in useEffect for fetching vehicles
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-700">Loading vehicles...</p>
+        <div className="space-y-4 w-full max-w-3xl mx-auto">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="animate-pulse flex space-x-4 p-4 bg-gray-100 rounded">
+              <div className="rounded bg-gray-300 h-32 w-48" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-6 bg-gray-300 rounded w-1/2" />
+                <div className="h-4 bg-gray-200 rounded w-1/3" />
+                <div className="h-4 bg-gray-200 rounded w-1/4" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Add skeleton loader for loading state
+  if (!loading && !error && filteredVehicles.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl text-gray-500">No vehicles found.</p>
       </div>
     );
   }

@@ -23,6 +23,20 @@ api.interceptors.request.use(
     }
 );
 
+// Add response interceptor to handle token expiration
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        if (error.response?.status === 401) {
+            // Clear auth state and redirect to login
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
+
 export const getAuthHeader = () => {
     const token = localStorage.getItem('token');
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -30,16 +44,12 @@ export const getAuthHeader = () => {
 
 export const handleApiError = (error: any) => {
     if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
         console.error('API Error Response:', error.response.data);
         return error.response.data.message || 'An error occurred';
     } else if (error.request) {
-        // The request was made but no response was received
         console.error('API Error Request:', error.request);
         return 'No response from server';
     } else {
-        // Something happened in setting up the request that triggered an Error
         console.error('API Error:', error.message);
         return error.message;
     }
@@ -49,25 +59,25 @@ export const API_ENDPOINTS = {
     // Auth
     LOGIN: '/users/login',
     REGISTER: '/users/register',
-    USER_BY_ID: (id: string) => `/users/fetch-by-id/${id}`,
+    USER_BY_ID: (id: string) => `/users/fetch-by-id?id=${id}`,
+    UPDATE_PROFILE: '/users/update-profile',
     
     // Vehicles
     VEHICLES: '/vehicles',
     VEHICLE_DETAILS: (id: string) => `/vehicles/fetch-by-id?id=${id}`,
-    VEHICLE_RESERVE: '/vehicles/reserve',
     
-    // Services
-    SERVICES: '/services',
-    SERVICE_BOOKING: '/services/book',
-    SERVICE_PAYMENT: '/services/payment',
+    // Inventory
+    ADD_VEHICLE: '/inventory/add-vehicle',
+    FETCH_VEHICLES: '/inventory/fetch-vehicles',
+    UPDATE_VEHICLE: (id: string) => `/inventory/vehicles/update?id=${id}`,
+    DELETE_VEHICLE: (id: string) => `/inventory/vehicles/delete/${id}`,
     
+    // Auction Tracker
+    ADD_AUCTION_PURCHASE: '/auction-tracker/add-new',
+    FETCH_AUCTION_PURCHASES: '/auction-tracker/fetch-all',
+    AUCTION_DASHBOARD: '/auction-tracker/dashboard-summary',
+    UPDATE_AUCTION_PURCHASE: (id: string) => `/auction-tracker/update?auction_id=${id}`,
+    DELETE_AUCTION_PURCHASE: (id: string) => `/auction-tracker/delete/${id}`,
     // Payments
     PAYMENTS: '/payments',
-    PAYMENT_VERIFY: '/payments/verify',
-
-    //Inventory
-    ADD_NEW_VEHICLE: '/inventory/add-vehicle',
-    GET_INVENTORY: '/inventory/fetch-vehicles',
-    UPDATE_VEHICLE: (id: string) => `/inventory/vehicles/update/${id}`,
-    DELETE_VEHICLE: (id: string) => `/inventory/vehicles/delete/${id}`,
 };

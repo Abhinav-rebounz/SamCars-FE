@@ -1,5 +1,6 @@
 import api from './api';
 import { API_ENDPOINTS } from '../config/api';
+import { AxiosError } from 'axios';
 
 export const makePayment = async (data: {
   type: 'reserve' | 'service';
@@ -21,5 +22,40 @@ export const verifyVin = async (lastFourDigits: string) => {
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.message || 'VIN verification failed' };
+  }
+};
+
+// Fetch all payments with optional filters
+export const fetchPayments = async (filters?: Record<string, any>) => {
+  try {
+    const response = await api.get(API_ENDPOINTS.PAYMENTS, { params: filters });
+    return { success: true, data: response.data };
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    return { success: false, error: axiosError.response?.data?.message || 'Failed to fetch payments' };
+  }
+};
+
+// Add a manual payment
+export const addManualPayment = async (data: {
+  user_id: string;
+  amount: number;
+  payment_method: string;
+  description: string;
+  related_appointment_id?: number;
+  related_appointment_type?: string;
+  vehicle_id?: number;
+  service_id?: number;
+  status: string;
+  date?: string;
+  is_manual?: boolean;
+}) => {
+  try {
+    const payload = { ...data, is_manual: true };
+    const response = await api.post(API_ENDPOINTS.PAYMENTS, payload);
+    return { success: true, data: response.data };
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    return { success: false, error: axiosError.response?.data?.message || 'Failed to add manual payment' };
   }
 };
