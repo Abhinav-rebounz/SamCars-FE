@@ -13,7 +13,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
     make: '',
     model: '',
     year: '',
-    price: '',
     mileage: '',
     vin: '',
     exterior_color: '',
@@ -21,10 +20,11 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
     transmission: '',
     body_type: '',
     description: '',
-    status: 'auction',
+    status: 'available',
     condition: 'used',
     fuel_type: '',
     tags: [] as string[],
+    carfax_link: '',
     // Auction fields
     purchase_date: '',
     purchase_price: '',
@@ -42,11 +42,11 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
   // Populate form with initial data when editing
   useEffect(() => {
     if (initialData) {
+      console.log('Setting initial data for editing:', initialData);
       setFormData({
         make: initialData.make || '',
         model: initialData.model || '',
         year: initialData.year?.toString() || '',
-        price: initialData.price?.toString() || '',
         mileage: initialData.mileage?.toString() || '',
         vin: initialData.vin || '',
         exterior_color: initialData.exterior_color || '',
@@ -54,10 +54,11 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
         transmission: initialData.transmission || '',
         body_type: initialData.body_type || '',
         description: initialData.description || '',
-        status: initialData.status || 'auction',
+        status: initialData.status || 'available',
         condition: initialData.condition || 'used',
         fuel_type: initialData.fuel_type || '',
-        tags: initialData.tags || [],
+        tags: Array.isArray(initialData.tags) ? initialData.tags : [],
+        carfax_link: initialData.carfax_link || '',
         purchase_date: initialData.purchase_date || '',
         purchase_price: initialData.purchase_price?.toString() || '',
         additional_costs: initialData.additional_costs?.toString() || '',
@@ -150,7 +151,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             make: '',
             model: '',
             year: '',
-            price: '',
             mileage: '',
             vin: '',
             exterior_color: '',
@@ -158,10 +158,11 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             transmission: '',
             body_type: '',
             description: '',
-            status: 'auction',
+            status: 'available',
             condition: 'used',
             fuel_type: '',
             tags: [],
+            carfax_link: '',
             purchase_date: '',
             purchase_price: '',
             additional_costs: '',
@@ -277,15 +278,31 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700">Price *</label>
-          <input
-            type="number"
-            name="price"
-            value={formData.price}
+          <label className="block text-sm font-medium text-gray-700">Status *</label>
+          <select
+            name="status"
+            value={formData.status}
             onChange={handleInputChange}
-            min="0"
-            step="0.01"
             required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            disabled={loading}
+          >
+            <option value="">Select status</option>
+            <option value="available">Available</option>
+            <option value="sold">Sold</option>
+            <option value="pending">Pending</option>
+            <option value="maintenance">Maintenance</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Carfax Link</label>
+          <input
+            type="url"
+            name="carfax_link"
+            value={formData.carfax_link}
+            onChange={handleInputChange}
+            placeholder="https://www.carfax.com/..."
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             disabled={loading}
           />
@@ -326,10 +343,10 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             disabled={loading}
           >
             <option value="">Select transmission</option>
-            <option value="automatic">automatic</option>
-            <option value="manual">manual</option>
-            <option value="cvt">cvt</option>
-            <option value="semi_automatic">semi_automatic</option>
+            <option value="automatic">Automatic</option>
+            <option value="manual">Manual</option>
+            <option value="cvt">CVT</option>
+            <option value="semi_automatic">Semi-Automatic</option>
           </select>
         </div>
         
@@ -344,15 +361,15 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             disabled={loading}
           >
             <option value="">Select body type</option>
-            <option value="sedan">sedan</option>
-            <option value="suv">suv</option>
-            <option value="truck">truck</option>
-            <option value="coupe">coupe</option>
-            <option value="convertible">convertible</option>
-            <option value="hatchback">hatchback</option>
-            <option value="minivan">minivan</option>
-            <option value="van">van</option>
-            <option value="wagon">wagon</option>
+            <option value="sedan">Sedan</option>
+            <option value="suv">SUV</option>
+            <option value="truck">Truck</option>
+            <option value="coupe">Coupe</option>
+            <option value="convertible">Convertible</option>
+            <option value="hatchback">Hatchback</option>
+            <option value="minivan">Minivan</option>
+            <option value="van">Van</option>
+            <option value="wagon">Wagon</option>
           </select>
         </div>
         
@@ -367,12 +384,12 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             disabled={loading}
           >
             <option value="">Select condition</option>
-            <option value="new">new</option>
-            <option value="used">used</option>
-            <option value="certified_pre_owned">certified_pre_owned</option>
-            <option value="excellent">excellent</option>
-            <option value="good">good</option>
-            <option value="fair">fair</option>
+            <option value="new">New</option>
+            <option value="used">Used</option>
+            <option value="certified_pre_owned">Certified Pre-Owned</option>
+            <option value="excellent">Excellent</option>
+            <option value="good">Good</option>
+            <option value="fair">Fair</option>
           </select>
         </div>
         
@@ -387,18 +404,18 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             disabled={loading}
           >
             <option value="">Select fuel type</option>
-            <option value="gasoline">gasoline</option>
-            <option value="diesel">diesel</option>
-            <option value="electric">electric</option>
-            <option value="hybrid">hybrid</option>
-            <option value="plug_in_hybrid">plug_in_hybrid</option>
+            <option value="gasoline">Gasoline</option>
+            <option value="diesel">Diesel</option>
+            <option value="electric">Electric</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="plug_in_hybrid">Plug-in Hybrid</option>
           </select>
         </div>
         
         <div>
           <label className="block text-sm font-medium text-gray-700">Tags</label>
           <div className="flex flex-wrap gap-2 mt-1">
-            {['featured', 'new', 'used', 'certified'].map(tag => (
+            {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History', 'Mark as Featured'].map(tag => (
               <label key={tag} className="inline-flex items-center">
                 <input
                   type="checkbox"
@@ -535,7 +552,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
               make: '',
               model: '',
               year: '',
-              price: '',
               mileage: '',
               vin: '',
               exterior_color: '',
@@ -543,10 +559,11 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
               transmission: '',
               body_type: '',
               description: '',
-              status: 'auction',
+              status: 'available',
               condition: 'used',
               fuel_type: '',
               tags: [],
+              carfax_link: '',
               purchase_date: '',
               purchase_price: '',
               additional_costs: '',

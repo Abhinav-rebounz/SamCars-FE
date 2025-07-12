@@ -18,6 +18,9 @@ export interface Vehicle {
   images: string[];
   status: string;
   description: string;
+  stock_number?: string;
+  location?: string;
+  is_featured?: boolean;
   createdAt?: string;
   updatedAt?: string;
 } 

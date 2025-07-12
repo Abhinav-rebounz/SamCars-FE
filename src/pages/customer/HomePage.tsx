@@ -1,14 +1,42 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Shield, ThumbsUp, Clock, ArrowRight } from 'lucide-react';
-import { vehicles } from '../../data/vehicles';
+import { getInventory } from '../../services/inventory';
 import VehicleCard from '../../components/VehicleCard';
 
 const HomePage: React.FC = () => {
-  // Get featured vehicles
-  const featuredVehicles = vehicles
-    .filter(vehicle => vehicle.tags.includes('featured'))
-    .slice(0, 3);
+  const [featuredVehicles, setFeaturedVehicles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch vehicles with 'Featured' tag, sorted by date_added descending
+        const response = await getInventory({ 
+          limit: 3, 
+          page: 1, 
+          sort_by: 'date_added', 
+          sort_order: 'desc',
+          tags: 'Featured'
+        });
+        if (response.success && response.vehicles) {
+          setFeaturedVehicles(response.vehicles);
+        } else {
+          setFeaturedVehicles([]);
+          setError('No vehicles found.');
+        }
+      } catch (err) {
+        setError('Failed to load featured vehicles.');
+        setFeaturedVehicles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFeatured();
+  }, []);
 
   return (
     <div>
@@ -94,24 +122,36 @@ const HomePage: React.FC = () => {
               Explore our handpicked selection of premium pre-owned vehicles, each thoroughly inspected and ready for the road.
             </p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredVehicles.map(vehicle => (
-              <VehicleCard
-                key={vehicle.id}
-                id={vehicle.id}
-                make={vehicle.make}
-                model={vehicle.model}
-                year={vehicle.year}
-                price={vehicle.price}
-                mileage={vehicle.mileage}
-                image={vehicle.images[0]}
-                condition={vehicle.condition}
-                tags={vehicle.tags}
-              />
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[220px]">
+            {loading ? (
+              <div className="col-span-3 flex justify-center items-center min-h-[180px]">
+                <span className="text-gray-400 text-lg">Loading...</span>
+              </div>
+            ) : error ? (
+              <div className="col-span-3 flex justify-center items-center min-h-[180px]">
+                <span className="text-red-500">{error}</span>
+              </div>
+            ) : featuredVehicles.length === 0 ? (
+              <div className="col-span-3 flex justify-center items-center min-h-[180px]">
+                <span className="text-gray-400">No vehicles found.</span>
+              </div>
+            ) : (
+              featuredVehicles.map(vehicle => (
+                <VehicleCard
+                  key={vehicle.id}
+                  id={vehicle.id}
+                  make={vehicle.make}
+                  model={vehicle.model}
+                  year={vehicle.year}
+                  price={vehicle.price}
+                  mileage={vehicle.mileage}
+                  image={vehicle.images && vehicle.images[0]}
+                  condition={vehicle.condition}
+                  tags={vehicle.tags || []}
+                />
+              ))
+            )}
           </div>
-          
           <div className="text-center mt-10">
             <Link to="/inventory" className="btn-primary inline-flex items-center">
               View All Inventory

@@ -6,13 +6,23 @@ interface AuctionPurchase {
   make: string;
   model: string;
   year: number;
+  mileage: number;
   vin: string;
+  exterior_color: string;
+  interior_color: string;
+  transmission: string;
+  body_type: string;
+  description: string;
+  status: string;
+  condition: string;
+  fuel_type: string;
+  tags: string[];
+  carfax_link: string;
   purchase_price: number;
   purchase_date: string;
   additional_costs: number;
   list_price: number;
-  status: string;
-  description: string;
+  sold_price: number;
   notes: string;
   images: string[];
   created_at: string;
@@ -51,20 +61,30 @@ interface AuctionDashboardResponse {
 
 const mapBackendAuctionPurchase = (v: any): AuctionPurchase => ({
   id: v.auction_id?.toString() || v.id?.toString(),
-  make: v.make,
-  model: v.model,
+  make: v.make || '',
+  model: v.model || '',
   year: parseInt(v.year) || 0,
-  vin: v.vin,
+  mileage: parseInt(v.mileage) || 0,
+  vin: v.vin || '',
+  exterior_color: v.exterior_color || '',
+  interior_color: v.interior_color || '',
+  transmission: v.transmission || '',
+  body_type: v.body_type || '',
+  description: v.description || '',
+  status: v.status || '',
+  condition: v.condition || '',
+  fuel_type: v.fuel_type || '',
+  tags: Array.isArray(v.tags) ? v.tags : [],
+  carfax_link: v.carfax_link || '',
   purchase_price: parseFloat(v.purchase_price) || 0,
-  purchase_date: v.purchase_date,
+  purchase_date: v.purchase_date || '',
   additional_costs: parseFloat(v.additional_costs || 0),
   list_price: parseFloat(v.list_price || 0),
-  status: v.status,
-  description: v.description || '',
+  sold_price: parseFloat(v.sold_price || 0),
   notes: v.notes || '',
   images: Array.isArray(v.images) ? v.images : [],
-  created_at: v.created_at,
-  updated_at: v.updated_at,
+  created_at: v.created_at || '',
+  updated_at: v.updated_at || '',
 });
 
 export const addAuctionPurchase = async (purchaseData: FormData): Promise<AddAuctionPurchaseResponse> => {

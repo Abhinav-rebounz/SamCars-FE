@@ -23,12 +23,12 @@ const AccountPage: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState<string | null>(null);
-
+  
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-
+  
   // Fetch payments from backend
   useEffect(() => {
     const fetchUserPayments = async () => {
@@ -244,7 +244,7 @@ const AccountPage: React.FC = () => {
                   </form>
                 </div>
               )}
-
+              
               {/* Payments Tab */}
               {activeTab === 'payments' && (
                 <div>

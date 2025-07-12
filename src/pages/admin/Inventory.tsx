@@ -9,9 +9,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
-import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
-import api from '../../services/api';
-import axios from 'axios';
+import { API_BASE_URL, API_ENDPOINTS, api } from '../../config/api';
 import { getInventory, deleteVehicle } from '../../services/inventory';
 import { Vehicle as VehicleType } from '../../types/vehicle';
 
@@ -48,6 +46,7 @@ interface NewVehicle {
   description: string;
   status: string;
   tags: string[];
+  features: string[];
   images: (File | string)[]; // Allow both File objects and URLs
   fuel_type: string;
   engine: string;
@@ -95,6 +94,7 @@ const Inventory: React.FC = () => {
     description: '',
     status: 'available',
     tags: [],
+    features: [],
     images: [],
     fuel_type: '',
     engine: '',
@@ -130,6 +130,7 @@ const Inventory: React.FC = () => {
           transmission: v.transmission || '',
           description: v.description || '',
           tags: v.tags ?? [],
+          features: v.features ?? [],
           images: v.images ?? [],
           fuel_type: v.fuel_type || '',
           engine: v.engine || '',
@@ -235,9 +236,10 @@ const Inventory: React.FC = () => {
     const { value, checked } = e.target;
     if (selectedVehicle) {
       setSelectedVehicle(prev => {
+        const currentTags = prev?.tags || [];
         const newTags = checked
-          ? [...prev!.tags, value]
-          : prev!.tags.filter(tag => tag !== value);
+          ? [...currentTags, value]
+          : currentTags.filter(tag => tag !== value);
         return { ...prev!, tags: newTags };
       });
     } else {
@@ -246,6 +248,26 @@ const Inventory: React.FC = () => {
           ? [...prev.tags, value]
           : prev.tags.filter(tag => tag !== value);
         return { ...prev, tags: newTags };
+      });
+    }
+  };
+
+  const handleFeatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, checked } = e.target;
+    if (selectedVehicle) {
+      setSelectedVehicle(prev => {
+        const currentFeatures = prev?.features || [];
+        const newFeatures = checked
+          ? [...currentFeatures, value]
+          : currentFeatures.filter(feature => feature !== value);
+        return { ...prev!, features: newFeatures };
+      });
+    } else {
+      setNewVehicle(prev => {
+        const newFeatures = checked
+          ? [...prev.features, value]
+          : prev.features.filter(feature => feature !== value);
+        return { ...prev, features: newFeatures };
       });
     }
   };
@@ -309,10 +331,10 @@ const Inventory: React.FC = () => {
   const handleAddVehicleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const formData = new FormData();
-      
-      // Add all vehicle data to formData
-      Object.entries(newVehicle).forEach(([key, value]) => {
+      if (selectedVehicle) {
+        // Always use JSON for updates to ensure all fields are updated correctly
+        const updateData: any = {};
+        
         // Map camelCase field names to snake_case for backend
         const fieldNameMap: { [key: string]: string } = {
           bodyType: 'body_type',
@@ -320,57 +342,91 @@ const Inventory: React.FC = () => {
           interiorColor: 'interior_color'
         };
         
-        const fieldName = fieldNameMap[key] || key;
-        
-        console.log(`Mapping field: ${key} -> ${fieldName}, value:`, value);
-        
-        if (key === 'images') {
-          // Handle images - only send new files, keep existing URLs
-          const images = value as (File | string)[];
-          images.forEach((image, index) => {
-            if (image instanceof File) {
-              formData.append(`images`, image);
+        Object.entries(newVehicle).forEach(([key, value]) => {
+          if (key !== 'images') { // Skip images for JSON update
+            const fieldName = fieldNameMap[key] || key;
+            if (key === 'tags' || key === 'features') {
+              updateData[fieldName] = JSON.stringify(value);
             } else {
-              formData.append(`existingImages`, image);
+              updateData[fieldName] = value;
             }
-          });
-        } else if (key === 'tags') {
-          formData.append(fieldName, JSON.stringify(value));
-        } else {
-          formData.append(fieldName, value.toString());
-        }
-      });
-      
-      // Debug: Log all FormData entries
-      console.log('FormData entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}: ${value}`);
-      }
-
-      if (selectedVehicle) {
-        // Update existing vehicle
-        const response = await axios.put(
-          `${API_BASE_URL}/inventory/vehicles/update/${selectedVehicle.id}`,
-          formData,
+          }
+        });
+        
+        console.log('Update data (JSON):', updateData);
+        
+        const response = await api.put(
+          API_ENDPOINTS.UPDATE_VEHICLE(selectedVehicle.id),
+          updateData,
           {
             headers: {
-              'Content-Type': 'multipart/form-data',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+              'Content-Type': 'application/json'
             }
           }
         );
         console.log('Update response:', response.data);
         setSuccessMessage('Vehicle updated successfully');
         setErrorMessage(null);
+        
+        // TODO: Handle image uploads separately if needed
+        // For now, images will be preserved as they are
       } else {
+        // Add new vehicle - use FormData for image uploads
+        const formData = new FormData();
+        
+        // Add all vehicle data to formData
+        Object.entries(newVehicle).forEach(([key, value]) => {
+          // Map camelCase field names to snake_case for backend
+          const fieldNameMap: { [key: string]: string } = {
+            bodyType: 'body_type',
+            exteriorColor: 'exterior_color',
+            interiorColor: 'interior_color'
+          };
+          
+          const fieldName = fieldNameMap[key] || key;
+          
+          console.log(`Mapping field: ${key} -> ${fieldName}, value:`, value);
+          
+          if (key === 'images') {
+            // Handle images - only send new files, keep existing URLs
+            const images = value as (File | string)[];
+            images.forEach((image, index) => {
+              if (image instanceof File) {
+                formData.append(`images`, image);
+              } else {
+                formData.append(`existingImages`, image);
+              }
+            });
+          } else if (key === 'tags' || key === 'features') {
+            // Handle arrays - convert to JSON string
+            const jsonString = JSON.stringify(value);
+            console.log(`Converting ${key} to JSON string:`, jsonString);
+            formData.append(fieldName, jsonString);
+          } else {
+            formData.append(fieldName, value.toString());
+          }
+        });
+        
+        // Debug: Log all FormData entries
+        console.log('FormData entries:');
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}: ${value}`);
+        }
+        
+        // Debug: Check if arrays are properly converted
+        console.log('Tags array:', newVehicle.tags);
+        console.log('Features array:', newVehicle.features);
+        
+        // Debug: Log the newVehicle object
+        console.log('newVehicle object:', newVehicle);
+
         // Add new vehicle
-        const response = await axios.post(
-          `${API_BASE_URL}/inventory/add-vehicle`,
+        const response = await api.post(
+          API_ENDPOINTS.ADD_VEHICLE,
           formData,
           {
             headers: {
-              'Content-Type': 'multipart/form-data',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+              'Content-Type': 'multipart/form-data'
             }
           }
         );
@@ -394,6 +450,7 @@ const Inventory: React.FC = () => {
         description: '',
         status: 'available',
         tags: [],
+        features: [],
         images: [],
         fuel_type: '',
         engine: '',
@@ -433,6 +490,7 @@ const Inventory: React.FC = () => {
       description: '',
       status: 'available',
       tags: [],
+      features: [],
       images: [],
       fuel_type: '',
       engine: '',
@@ -469,14 +527,15 @@ const Inventory: React.FC = () => {
       year: vehicle.year,
       price: vehicle.price,
       mileage: vehicle.mileage,
-      vin: vehicle.vin,
-      exteriorColor: vehicle.exteriorColor,
-      interiorColor: vehicle.interiorColor,
-      transmission: vehicle.transmission,
-      bodyType: vehicle.bodyType,
+      vin: vehicle.vin || '',
+      exteriorColor: vehicle.exteriorColor || '',
+      interiorColor: vehicle.interiorColor || '',
+      transmission: vehicle.transmission || '',
+      bodyType: vehicle.bodyType || '',
       description: vehicle.description,
-      status: vehicle.isSold ? 'sold' : 'available',
+      status: vehicle.status || 'available',
       tags: vehicle.tags ?? [],
+      features: vehicle.features ?? [],
       images: vehicle.images ?? [], // Keep existing images as URLs
       fuel_type: vehicle.fuel_type || '',
       engine: vehicle.engine || '',
@@ -505,6 +564,7 @@ const Inventory: React.FC = () => {
       description: '',
       status: 'available',
       tags: [],
+      features: [],
       images: [],
       fuel_type: '',
       engine: '',
@@ -686,6 +746,54 @@ const Inventory: React.FC = () => {
                   </th>
                   <th
                     scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Tags
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Features
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Transmission
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Body Type
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Fuel Type
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Condition
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Stock #
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Location
+                  </th>
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                     onClick={() => handleSort('dateAdded')}
                   >
@@ -740,31 +848,65 @@ const Inventory: React.FC = () => {
                       {vehicle.mileage.toLocaleString()} mi
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {vehicle.isSold ? (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                            Sold
-                          </span>
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        vehicle.status === 'available' ? 'bg-green-100 text-green-800' :
+                        vehicle.status === 'sold' ? 'bg-red-100 text-red-800' :
+                        vehicle.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        vehicle.status === 'maintenance' ? 'bg-orange-100 text-orange-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {vehicle.status ? vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1) : 'Unknown'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-wrap gap-1">
+                        {vehicle.tags && vehicle.tags.length > 0 ? (
+                          vehicle.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"
+                            >
+                              {tag}
+                            </span>
+                          ))
                         ) : (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                            Available
-                          </span>
-                        )}
-                        {(vehicle.tags && vehicle.tags.length > 0) && (
-                          <div className="ml-2 flex space-x-1">
-                            {vehicle.tags?.includes('new') && (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                New
-                              </span>
-                            )}
-                            {vehicle.tags?.includes('featured') && (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                Featured
-                              </span>
-                            )}
-                          </div>
+                          <span className="text-gray-400 text-xs">No tags</span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-wrap gap-1">
+                        {vehicle.features && vehicle.features.length > 0 ? (
+                          vehicle.features.map((feature, index) => (
+                            <span
+                              key={index}
+                              className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
+                            >
+                              {feature}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-xs">No features</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.transmission || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.bodyType || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.fuel_type || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.condition || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.stock_number || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.location || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(vehicle.dateAdded).toLocaleDateString()}
@@ -864,7 +1006,16 @@ const Inventory: React.FC = () => {
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 relative">
+                <button
+                  className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+                  onClick={closeAddModal}
+                  aria-label="Close Add Vehicle Form"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
                     <Plus className="h-6 w-6 text-blue-700" />
@@ -1030,13 +1181,35 @@ const Inventory: React.FC = () => {
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
                         >
-                          <option value="">Select Transmission</option>
+                          <option value="">Select transmission</option>
                           <option value="automatic">Automatic</option>
                           <option value="manual">Manual</option>
                           <option value="cvt">CVT</option>
                           <option value="semi_automatic">Semi-Automatic</option>
                         </select>
                       </div>
+                      <div>
+                        <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                          Status
+                        </label>
+                        <select
+                          name="status"
+                          id="status"
+                          value={selectedVehicle ? selectedVehicle.status : newVehicle.status}
+                          onChange={handleChange}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
+                        >
+                          <option value="">Select status</option>
+                          <option value="available">Available</option>
+                          <option value="sold">Sold</option>
+                          <option value="pending">Pending</option>
+                          <option value="maintenance">Maintenance</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="bodyType" className="block text-sm font-medium text-gray-700">
                           Body Type
@@ -1049,7 +1222,7 @@ const Inventory: React.FC = () => {
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
                         >
-                          <option value="">Select Body Type</option>
+                          <option value="">Select body type</option>
                           <option value="sedan">Sedan</option>
                           <option value="suv">SUV</option>
                           <option value="truck">Truck</option>
@@ -1061,9 +1234,6 @@ const Inventory: React.FC = () => {
                           <option value="wagon">Wagon</option>
                         </select>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
                           Fuel Type
@@ -1074,27 +1244,15 @@ const Inventory: React.FC = () => {
                           value={selectedVehicle ? selectedVehicle.fuel_type : newVehicle.fuel_type}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         >
-                          <option value="">Select Fuel Type</option>
+                          <option value="">Select fuel type</option>
                           <option value="gasoline">Gasoline</option>
                           <option value="diesel">Diesel</option>
                           <option value="electric">Electric</option>
                           <option value="hybrid">Hybrid</option>
                           <option value="plug_in_hybrid">Plug-in Hybrid</option>
                         </select>
-                      </div>
-                      <div>
-                        <label htmlFor="engine" className="block text-sm font-medium text-gray-700">
-                          Engine
-                        </label>
-                        <input
-                          type="text"
-                          name="engine"
-                          id="engine"
-                          value={selectedVehicle ? selectedVehicle.engine : newVehicle.engine}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        />
                       </div>
                     </div>
 
@@ -1109,8 +1267,9 @@ const Inventory: React.FC = () => {
                           value={selectedVehicle ? selectedVehicle.condition : newVehicle.condition}
                           onChange={handleChange}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required
                         >
-                          <option value="">Select Condition</option>
+                          <option value="">Select condition</option>
                           <option value="new">New</option>
                           <option value="used">Used</option>
                           <option value="certified_pre_owned">Certified Pre-Owned</option>
@@ -1153,133 +1312,61 @@ const Inventory: React.FC = () => {
                         Description
                       </label>
                       <textarea
-                        id="description"
                         name="description"
+                        id="description"
                         rows={3}
                         value={selectedVehicle ? selectedVehicle.description : newVehicle.description}
                         onChange={handleChange}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      ></textarea>
+                      />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Tags
                       </label>
                       <div className="mt-2 flex flex-wrap gap-3">
-                        <div className="flex items-center">
-                          <input
-                            id="tag-new"
-                            name="tags"
-                            type="checkbox"
-                            value="new"
-                            checked={selectedVehicle ? selectedVehicle.tags.includes('new') : newVehicle.tags.includes('new')}
-                            onChange={handleTagChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="tag-new" className="ml-2 block text-sm text-gray-700">
-                            New Arrival
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="tag-featured"
-                            name="tags"
-                            type="checkbox"
-                            value="featured"
-                            checked={selectedVehicle ? selectedVehicle.tags.includes('featured') : newVehicle.tags.includes('featured')}
-                            onChange={handleTagChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="tag-featured" className="ml-2 block text-sm text-gray-700">
-                            Featured
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="tag-price-drop"
-                            name="tags"
-                            type="checkbox"
-                            value="price-drop"
-                            checked={selectedVehicle ? selectedVehicle.tags.includes('price-drop') : newVehicle.tags.includes('price-drop')}
-                            onChange={handleTagChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="tag-price-drop" className="ml-2 block text-sm text-gray-700">
-                            Price Drop
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="tag-low-mileage"
-                            name="tags"
-                            type="checkbox"
-                            value="low-mileage"
-                            checked={selectedVehicle ? selectedVehicle.tags.includes('low-mileage') : newVehicle.tags.includes('low-mileage')}
-                            onChange={handleTagChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="tag-low-mileage" className="ml-2 block text-sm text-gray-700">
-                            Low Mileage
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="tag-certified"
-                            name="tags"
-                            type="checkbox"
-                            value="certified"
-                            checked={selectedVehicle ? selectedVehicle.tags.includes('certified') : newVehicle.tags.includes('certified')}
-                            onChange={handleTagChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="tag-certified" className="ml-2 block text-sm text-gray-700">
-                            Certified
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="tag-one-owner"
-                            name="tags"
-                            type="checkbox"
-                            value="one-owner"
-                            checked={selectedVehicle ? selectedVehicle.tags.includes('one-owner') : newVehicle.tags.includes('one-owner')}
-                            onChange={handleTagChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="tag-one-owner" className="ml-2 block text-sm text-gray-700">
-                            One Owner
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="tag-clean-history"
-                            name="tags"
-                            type="checkbox"
-                            value="clean-history"
-                            checked={selectedVehicle ? selectedVehicle.tags.includes('clean-history') : newVehicle.tags.includes('clean-history')}
-                            onChange={handleTagChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="tag-clean-history" className="ml-2 block text-sm text-gray-700">
-                            Clean History
-                          </label>
-                        </div>
+                        {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History', 'Mark as Featured'].map(tag => (
+                          <div key={tag} className="flex items-center">
+                            <input
+                              id={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`}
+                              name="tags"
+                              type="checkbox"
+                              value={tag}
+                              checked={selectedVehicle ? (selectedVehicle.tags || []).includes(tag) : newVehicle.tags.includes(tag)}
+                              onChange={handleTagChange}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
+                              {tag}
+                            </label>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-center">
-                      <input
-                        id="is_featured"
-                        name="is_featured"
-                        type="checkbox"
-                        checked={selectedVehicle ? selectedVehicle.is_featured : newVehicle.is_featured}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="is_featured" className="ml-2 block text-sm text-gray-900">
-                        Mark as Featured
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Features
                       </label>
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {['Bluetooth', 'Navigation', 'Backup Camera', 'Heated Seats', 'Sunroof', 'Leather Interior', 'Alloy Wheels', 'Remote Start', 'Apple CarPlay', 'Android Auto', 'Blind Spot Monitor', 'Lane Departure Warning', 'Adaptive Cruise Control', 'Parking Sensors', 'Premium Audio'].map(feature => (
+                          <div key={feature} className="flex items-center">
+                            <input
+                              id={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`}
+                              name="features"
+                              type="checkbox"
+                              value={feature}
+                              checked={selectedVehicle ? (selectedVehicle.features || []).includes(feature) : newVehicle.features.includes(feature)}
+                              onChange={handleFeatureChange}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
+                              {feature}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Image upload section */}
@@ -1381,7 +1468,19 @@ const Inventory: React.FC = () => {
       {/* Edit Modal */}
       {showEditModal && selectedVehicle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+            <button
+              className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+              onClick={() => {
+                setShowEditModal(false);
+                setSelectedVehicle(null);
+              }}
+              aria-label="Close Edit Vehicle Form"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             <h2 className="text-2xl font-bold mb-4">Edit Vehicle</h2>
             <form onSubmit={handleAddVehicleSubmit} className="space-y-4">
               {/* Basic Information */}
@@ -1526,6 +1625,28 @@ const Inventory: React.FC = () => {
                   </select>
                 </div>
                 <div>
+                  <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    id="status"
+                    value={selectedVehicle.status}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  >
+                    <option value="">Select Status</option>
+                    <option value="available">Available</option>
+                    <option value="sold">Sold</option>
+                    <option value="pending">Pending</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <label htmlFor="bodyType" className="block text-sm font-medium text-gray-700">
                     Body Type
                   </label>
@@ -1549,9 +1670,6 @@ const Inventory: React.FC = () => {
                     <option value="wagon">Wagon</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
                     Fuel Type
@@ -1570,19 +1688,6 @@ const Inventory: React.FC = () => {
                     <option value="hybrid">Hybrid</option>
                     <option value="plug_in_hybrid">Plug-in Hybrid</option>
                   </select>
-                </div>
-                <div>
-                  <label htmlFor="engine" className="block text-sm font-medium text-gray-700">
-                    Engine
-                  </label>
-                  <input
-                    type="text"
-                    name="engine"
-                    id="engine"
-                    value={selectedVehicle.engine}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
                 </div>
               </div>
 
@@ -1641,119 +1746,62 @@ const Inventory: React.FC = () => {
                   Description
                 </label>
                 <textarea
-                  id="description"
                   name="description"
+                  id="description"
                   rows={3}
                   value={selectedVehicle.description}
                   onChange={handleChange}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                ></textarea>
+                />
               </div>
 
               {/* Tags Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tags
                 </label>
                 <div className="mt-2 flex flex-wrap gap-3">
-                  <div className="flex items-center">
-                    <input
-                      id="tag-new"
-                      name="tags"
-                      type="checkbox"
-                      value="new"
-                      checked={selectedVehicle.tags.includes('new')}
-                      onChange={handleTagChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="tag-new" className="ml-2 block text-sm text-gray-700">
-                      New Arrival
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="tag-featured"
-                      name="tags"
-                      type="checkbox"
-                      value="featured"
-                      checked={selectedVehicle.tags.includes('featured')}
-                      onChange={handleTagChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="tag-featured" className="ml-2 block text-sm text-gray-700">
-                      Featured
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="tag-price-drop"
-                      name="tags"
-                      type="checkbox"
-                      value="price-drop"
-                      checked={selectedVehicle.tags.includes('price-drop')}
-                      onChange={handleTagChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="tag-price-drop" className="ml-2 block text-sm text-gray-700">
-                      Price Drop
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="tag-low-mileage"
-                      name="tags"
-                      type="checkbox"
-                      value="low-mileage"
-                      checked={selectedVehicle.tags.includes('low-mileage')}
-                      onChange={handleTagChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="tag-low-mileage" className="ml-2 block text-sm text-gray-700">
-                      Low Mileage
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="tag-certified"
-                      name="tags"
-                      type="checkbox"
-                      value="certified"
-                      checked={selectedVehicle.tags.includes('certified')}
-                      onChange={handleTagChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="tag-certified" className="ml-2 block text-sm text-gray-700">
-                      Certified
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="tag-one-owner"
-                      name="tags"
-                      type="checkbox"
-                      value="one-owner"
-                      checked={selectedVehicle.tags.includes('one-owner')}
-                      onChange={handleTagChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="tag-one-owner" className="ml-2 block text-sm text-gray-700">
-                      One Owner
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="tag-clean-history"
-                      name="tags"
-                      type="checkbox"
-                      value="clean-history"
-                      checked={selectedVehicle.tags.includes('clean-history')}
-                      onChange={handleTagChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="tag-clean-history" className="ml-2 block text-sm text-gray-700">
-                      Clean History
-                    </label>
-                  </div>
+                  {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History', 'Mark as Featured'].map(tag => (
+                    <div key={tag} className="flex items-center">
+                      <input
+                        id={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`}
+                        name="tags"
+                        type="checkbox"
+                        value={tag}
+                        checked={(selectedVehicle.tags || []).includes(tag)}
+                        onChange={handleTagChange}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
+                        {tag}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Features Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Features
+                </label>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  {['Bluetooth', 'Navigation', 'Backup Camera', 'Heated Seats', 'Sunroof', 'Leather Interior', 'Alloy Wheels', 'Remote Start', 'Apple CarPlay', 'Android Auto', 'Blind Spot Monitor', 'Lane Departure Warning', 'Adaptive Cruise Control', 'Parking Sensors', 'Premium Audio'].map(feature => (
+                    <div key={feature} className="flex items-center">
+                      <input
+                        id={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`}
+                        name="features"
+                        type="checkbox"
+                        value={feature}
+                        checked={(selectedVehicle.features || []).includes(feature)}
+                        onChange={handleFeatureChange}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
+                        {feature}
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
 

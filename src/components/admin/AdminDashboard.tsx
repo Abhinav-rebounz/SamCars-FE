@@ -219,17 +219,17 @@ const AdminDashboard: React.FC = () => {
             <div className="p-6 text-gray-400 text-center">No recent activity to display.</div>
           ) : (
             dashboardData.recentActivity.map((activity) => (
-              <div key={activity.id} className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium">{activity.description}</p>
-                    <p className="text-sm text-gray-500">{activity.type}</p>
-                  </div>
-                  <span className="text-sm text-gray-500">
-                    {new Date(activity.timestamp).toLocaleDateString()}
-                  </span>
+            <div key={activity.id} className="p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium">{activity.description}</p>
+                  <p className="text-sm text-gray-500">{activity.type}</p>
                 </div>
+                <span className="text-sm text-gray-500">
+                  {new Date(activity.timestamp).toLocaleDateString()}
+                </span>
               </div>
+            </div>
             ))
           )}
         </div>

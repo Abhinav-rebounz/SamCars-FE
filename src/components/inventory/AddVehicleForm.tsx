@@ -28,6 +28,7 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
     body_type: '',
     description: '',
     status: 'available',
+    tags: [] as string[],
     images: [] as File[]
   });
 
@@ -49,17 +50,37 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         body_type: initialData.body_type || '',
         description: initialData.description || '',
         status: initialData.status || 'available',
+        tags: initialData.tags || [],
         images: []
       });
     }
   }, [initialData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+      const checkbox = e.target as HTMLInputElement;
+      if (name === 'tags') {
+        const currentTags = formData.tags;
+        if (checkbox.checked) {
+          setFormData(prev => ({
+            ...prev,
+            tags: [...currentTags, value]
+          }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            tags: currentTags.filter(tag => tag !== value)
+          }));
+        }
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,11 +101,16 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
       const formDataToSend = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
         if (key === 'images') {
-          value.forEach((file: File) => {
+          (value as File[]).forEach((file: File) => {
             formDataToSend.append('images', file);
           });
+        } else if (key === 'tags') {
+          // Handle tags array
+          if (Array.isArray(value) && value.length > 0) {
+            formDataToSend.append(key, JSON.stringify(value));
+          }
         } else {
-          formDataToSend.append(key, value);
+          formDataToSend.append(key, value as string);
         }
       });
 
@@ -252,6 +278,42 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
             <option value="minivan">Minivan</option>
             <option value="van">Van</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Status</label>
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            <option value="">Select status</option>
+            <option value="available">Available</option>
+            <option value="sold">Sold</option>
+            <option value="pending">Pending</option>
+            <option value="maintenance">Maintenance</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Tags</label>
+        <div className="flex flex-wrap gap-2 mt-1">
+          {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History', 'Mark as Featured'].map(tag => (
+            <label key={tag} className="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="tags"
+                value={tag}
+                checked={formData.tags.includes(tag)}
+                onChange={handleInputChange}
+                className="mr-2"
+              />
+              {tag}
+            </label>
+          ))}
         </div>
       </div>
 

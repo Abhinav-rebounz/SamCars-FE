@@ -9,7 +9,8 @@ import {
   Edit,
   Trash2,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  Image as ImageIcon
 } from 'lucide-react';
 import AuctionPurchaseForm from '../../components/auction/AuctionPurchaseForm';
 import { getAuctionPurchases, deleteAuctionPurchase, updateAuctionPurchase } from '../../services/auction';
@@ -27,6 +28,7 @@ const Auctions: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
   
   // Fetch auction vehicles from backend
   const fetchAuctions = async () => {
@@ -144,6 +146,10 @@ const Auctions: React.FC = () => {
     return soldPrice ? soldPrice - totalInvestment : 0;
   };
 
+  const handleImageError = (auctionId: string) => {
+    setImageErrors(prev => ({ ...prev, [auctionId]: true }));
+  };
+
   // Handler for cancel button in modal
   const handleCancel = () => {
     setShowAddModal(false);
@@ -164,19 +170,21 @@ const Auctions: React.FC = () => {
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
       <div className="sm:flex sm:items-center sm:justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Auction to Sale Tracker</h1>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="mt-3 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Auction Purchase
-        </button>
+        <div className="flex w-full sm:w-auto justify-end">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Auction Purchase
+          </button>
+        </div>
       </div>
 
       {/* Modal for Add Auction Purchase */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto py-8 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl mx-auto p-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-xl mx-auto p-6 relative max-h-[80vh] overflow-y-auto">
             <button
               className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
               onClick={handleCancel}
@@ -186,6 +194,7 @@ const Auctions: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            <h2 className="text-xl font-semibold mb-6 text-center">Add Auction Purchase</h2>
             <AuctionPurchaseForm 
               formRef={formRef}
               onSuccess={handleCancel}
@@ -196,8 +205,8 @@ const Auctions: React.FC = () => {
 
       {/* Modal for Edit Auction Purchase */}
       {showEditModal && selectedAuction && (
-        <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto py-8 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl mx-auto p-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-xl mx-auto p-6 relative max-h-[80vh] overflow-y-auto">
             <button
               className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
               onClick={handleCancel}
@@ -207,7 +216,7 @@ const Auctions: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <h2 className="text-xl font-semibold mb-4">Edit Auction Purchase</h2>
+            <h2 className="text-xl font-semibold mb-6 text-center">Edit Auction Purchase</h2>
             <AuctionPurchaseForm 
               formRef={formRef}
               onSuccess={handleCancel}
@@ -258,6 +267,9 @@ const Auctions: React.FC = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Image
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('make')}>
                 <div className="flex items-center">
                   Make
@@ -281,6 +293,9 @@ const Auctions: React.FC = () => {
                     sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
                   )}
                 </div>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Mileage
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('vin')}>
                 <div className="flex items-center">
@@ -355,14 +370,31 @@ const Auctions: React.FC = () => {
               </div>
             )}
             {!loading && !error && sortedAuctions.length === 0 && (
-              <tr><td colSpan={10} className="text-center py-4">No auction purchases found.</td></tr>
+              <tr><td colSpan={11} className="text-center py-4">No auction purchases found.</td></tr>
             )}
             {!loading && !error && sortedAuctions.length > 0 && (
               sortedAuctions.map((auction, idx) => (
                 <tr key={auction.id || idx} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex-shrink-0 h-10 w-10">
+                      {auction.images && auction.images.length > 0 && !imageErrors[auction.id] ? (
+                        <img
+                          className="h-10 w-10 rounded-full object-cover"
+                          src={auction.images[0]}
+                          alt={`${auction.make} ${auction.model}`}
+                          onError={() => handleImageError(auction.id)}
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{auction.make}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{auction.model}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{auction.year}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{auction.mileage?.toLocaleString?.() ?? '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{auction.vin}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${auction.purchase_price?.toFixed(2) || '0.00'}
