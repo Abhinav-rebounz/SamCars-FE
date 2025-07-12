@@ -13,6 +13,8 @@ import WishlistPage from './pages/customer/WishlistPage';
 import LoginPage from './pages/customer/LoginPage';
 import RegisterPage from './pages/customer/RegisterPage';
 import SellCarPage from './pages/customer/SellCarPage';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 
 // Admin Views
 import AdminLayout from './components/admin/AdminLayout';
@@ -46,6 +48,8 @@ function App() {
             <Route path="wishlist" element={<WishlistPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
+            <Route path="reset-password" element={<ResetPassword />} />
           </Route>
           
           {/* Admin Routes */}

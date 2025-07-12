@@ -187,3 +187,29 @@ export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
 };
+
+export const requestPasswordReset = async (email: string) => {
+  try {
+    const response = await api.post('/auth/request-password-reset', { email });
+    return { success: true, message: response.data.message };
+  } catch (error) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    return {
+      success: false,
+      message: axiosError.response?.data?.message || 'Failed to send reset email'
+    };
+  }
+};
+
+export const resetPassword = async (token: string, newPassword: string) => {
+  try {
+    const response = await api.post('/auth/reset-password', { token, newPassword });
+    return { success: true, message: response.data.message };
+  } catch (error) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    return {
+      success: false,
+      message: axiosError.response?.data?.message || 'Failed to reset password'
+    };
+  }
+};
