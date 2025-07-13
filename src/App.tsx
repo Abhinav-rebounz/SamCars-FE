@@ -30,6 +30,8 @@ import AdminProfile from './pages/admin/Profile';
 // Context Providers
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
+import PaymentCancelled from './pages/PaymentCancelled';
+import PaymentSuccess from './pages/PaymentSuccess';
 
 function App() {
   return (
@@ -63,6 +65,10 @@ function App() {
             <Route path="services" element={<AdminServices />} />
             <Route path="profile" element={<AdminProfile />} />
           </Route>
+          
+          {/* Payment Routes */}
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-cancelled" element={<PaymentCancelled />} />
         </Routes>
       </CartProvider>
     </AuthProvider>
