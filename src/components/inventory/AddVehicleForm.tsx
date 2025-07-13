@@ -29,7 +29,8 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
     description: '',
     status: 'available',
     tags: [] as string[],
-    images: [] as File[]
+    images: [] as File[],
+    carfax_link: ''
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +52,8 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         description: initialData.description || '',
         status: initialData.status || 'available',
         tags: initialData.tags || [],
-        images: []
+        images: [],
+        carfax_link: initialData.carfax_link || ''
       });
     }
   }, [initialData]);
@@ -216,6 +218,18 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
             onChange={handleInputChange}
             required
             maxLength={17}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Carfax Report Link</label>
+          <input
+            type="url"
+            name="carfax_link"
+            value={formData.carfax_link}
+            onChange={handleInputChange}
+            placeholder="https://www.carfax.com/vehicle/..."
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>

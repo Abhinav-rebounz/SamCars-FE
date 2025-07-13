@@ -166,17 +166,42 @@ const InventoryList: React.FC = () => {
               <p className="text-gray-600 mb-2">Mileage: {vehicle.mileage.toLocaleString()} miles</p>
               <p className="text-green-600 font-bold mb-4">${vehicle.price.toLocaleString()}</p>
               <div className="flex justify-between items-center">
+                <div className="flex space-x-2">
+                  {vehicle.carfax_link ? (
+                    <button
+                      onClick={() => window.open(vehicle.carfax_link, '_blank')}
+                      className="bg-orange-500 text-white px-3 py-2 rounded hover:bg-orange-600 flex items-center space-x-1"
+                      title="View Carfax Report"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs font-semibold">CARFAX</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleEdit(vehicle)}
+                      className="bg-gray-400 text-white px-3 py-2 rounded hover:bg-gray-500 flex items-center space-x-1"
+                      title="Add Carfax Report Link"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-xs font-semibold">ADD CARFAX</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleEdit(vehicle)}
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                  >
+                    Edit
+                  </button>
+                </div>
                 <button
                   onClick={() => handleDelete(vehicle.id)}
                   className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
                 >
                   Delete
-                </button>
-                <button
-                  onClick={() => handleEdit(vehicle)}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                  Edit
                 </button>
               </div>
             </div>

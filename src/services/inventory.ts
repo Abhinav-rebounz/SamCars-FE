@@ -24,6 +24,7 @@ interface Vehicle {
   location?: string;
   is_featured?: boolean;
   stock_number?: string;
+  carfax_link?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -69,6 +70,7 @@ const mapBackendVehicle = (v: any): Vehicle => ({
   location: v.location || '',
   is_featured: v.is_featured || false,
   stock_number: v.stock_number || '',
+  carfax_link: v.carfax_link || '',
   created_at: v.created_at,
   updated_at: v.updated_at,
 });

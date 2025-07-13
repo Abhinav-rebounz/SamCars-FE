@@ -21,6 +21,7 @@ export interface Vehicle {
   stock_number?: string;
   location?: string;
   is_featured?: boolean;
+  carfax_link?: string;
   createdAt?: string;
   updatedAt?: string;
 } 

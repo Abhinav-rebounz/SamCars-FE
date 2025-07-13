@@ -54,6 +54,7 @@ interface NewVehicle {
   stock_number: string;
   location: string;
   is_featured: boolean;
+  carfax_link: string;
 }
 
 const Inventory: React.FC = () => {
@@ -102,6 +103,7 @@ const Inventory: React.FC = () => {
     stock_number: '',
     location: '',
     is_featured: false,
+    carfax_link: '',
   });
 
   // Fetch vehicles from API
@@ -138,6 +140,7 @@ const Inventory: React.FC = () => {
           stock_number: v.stock_number || '',
           location: v.location || '',
           is_featured: v.is_featured || false,
+          carfax_link: v.carfax_link || '',
         })));
         setPagination(response.pagination);
       } else {
@@ -332,8 +335,8 @@ const Inventory: React.FC = () => {
     e.preventDefault();
     try {
       if (selectedVehicle) {
-        // Always use JSON for updates to ensure all fields are updated correctly
-        const updateData: any = {};
+        // Use FormData for updates to match backend expectations
+        const formData = new FormData();
         
         // Map camelCase field names to snake_case for backend
         const fieldNameMap: { [key: string]: string } = {
@@ -342,25 +345,40 @@ const Inventory: React.FC = () => {
           interiorColor: 'interior_color'
         };
         
-        Object.entries(newVehicle).forEach(([key, value]) => {
-          if (key !== 'images') { // Skip images for JSON update
-            const fieldName = fieldNameMap[key] || key;
+        // Use selectedVehicle for updates since it contains the current form state
+        console.log('selectedVehicle before update:', selectedVehicle);
+        
+        // Only include fields that should be updated, excluding system fields
+        const fieldsToUpdate = [
+          'make', 'model', 'year', 'price', 'mileage', 'vin', 
+          'exteriorColor', 'interiorColor', 'transmission', 'bodyType',
+          'fuel_type', 'engine', 'condition', 'status', 'description',
+          'tags', 'features', 'carfax_link', 'location', 'stock_number', 'is_featured'
+        ];
+        
+        fieldsToUpdate.forEach(key => {
+          const fieldName = fieldNameMap[key] || key;
+          const value = (selectedVehicle as any)[key];
+          
+          if (value !== undefined && value !== null) {
             if (key === 'tags' || key === 'features') {
-              updateData[fieldName] = JSON.stringify(value);
+              console.log(`Adding ${fieldName}:`, JSON.stringify(value));
+              formData.append(fieldName, JSON.stringify(value));
             } else {
-              updateData[fieldName] = value;
+              console.log(`Adding ${fieldName}:`, value);
+              formData.append(fieldName, value.toString());
             }
           }
         });
         
-        console.log('Update data (JSON):', updateData);
+        console.log('Update data (FormData):', Object.fromEntries(formData.entries()));
         
         const response = await api.put(
           API_ENDPOINTS.UPDATE_VEHICLE(selectedVehicle.id),
-          updateData,
+          formData,
           {
             headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'multipart/form-data'
             }
           }
         );
@@ -458,6 +476,7 @@ const Inventory: React.FC = () => {
         stock_number: '',
         location: '',
         is_featured: false,
+        carfax_link: '',
       });
       setShowAddModal(false);
       setSelectedVehicle(null);
@@ -498,6 +517,7 @@ const Inventory: React.FC = () => {
       stock_number: '',
       location: '',
       is_featured: false,
+      carfax_link: '',
     });
     setAddFormError(null);
     setAddFormSuccess(null);
@@ -543,6 +563,7 @@ const Inventory: React.FC = () => {
       stock_number: vehicle.stock_number || '',
       location: vehicle.location || '',
       is_featured: vehicle.is_featured || false,
+      carfax_link: vehicle.carfax_link || '',
     });
     setShowEditModal(true);
   };
@@ -572,6 +593,7 @@ const Inventory: React.FC = () => {
       stock_number: '',
       location: '',
       is_featured: false,
+      carfax_link: '',
     });
     fetchVehicles(); // Refresh the list after edit
   };
@@ -794,6 +816,12 @@ const Inventory: React.FC = () => {
                   </th>
                   <th
                     scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    CarFax Link
+                  </th>
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                     onClick={() => handleSort('dateAdded')}
                   >
@@ -909,21 +937,48 @@ const Inventory: React.FC = () => {
                       {vehicle.location || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {vehicle.carfax_link ? (
+                        <a
+                          href={vehicle.carfax_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-orange-600 hover:text-orange-700 underline"
+                        >
+                          View CarFax
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">No link</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(vehicle.dateAdded).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        className="text-blue-700 hover:text-blue-800 mr-3"
-                        onClick={() => handleEdit(vehicle)}
-                      >
-                        <Edit className="h-5 w-5" />
-                      </button>
-                      <button
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => handleDelete(vehicle.id)}
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
+                      <div className="flex items-center justify-end space-x-2">
+                        {vehicle.carfax_link && (
+                          <button
+                            onClick={() => window.open(vehicle.carfax_link, '_blank')}
+                            className="text-orange-600 hover:text-orange-700"
+                            title="View Carfax Report"
+                          >
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        )}
+                        <button 
+                          className="text-blue-700 hover:text-blue-800"
+                          onClick={() => handleEdit(vehicle)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => handleDelete(vehicle.id)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1393,6 +1448,21 @@ const Inventory: React.FC = () => {
                       </div>
                     </div>
 
+                    <div>
+                      <label htmlFor="carfax_link" className="block text-sm font-medium text-gray-700">
+                        Carfax Report Link
+                      </label>
+                      <input
+                        type="url"
+                        name="carfax_link"
+                        id="carfax_link"
+                        value={newVehicle.carfax_link}
+                        onChange={handleChange}
+                        placeholder="https://www.carfax.com/vehicle/..."
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      />
+                    </div>
+
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                       <button
                         type="submit"
@@ -1846,6 +1916,21 @@ const Inventory: React.FC = () => {
                     />
                   </label>
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="carfax_link" className="block text-sm font-medium text-gray-700">
+                  Carfax Report Link
+                </label>
+                <input
+                  type="url"
+                  name="carfax_link"
+                  id="carfax_link"
+                  value={selectedVehicle.carfax_link}
+                  onChange={handleChange}
+                  placeholder="https://www.carfax.com/vehicle/..."
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
               </div>
 
               {/* Submit and Cancel buttons */}
