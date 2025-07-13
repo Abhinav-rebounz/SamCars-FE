@@ -9,7 +9,7 @@ export const makePayment = async (data: {
   serviceId?: string;
 }) => {
   try {
-    const response = await api.post(API_ENDPOINTS.PAYMENTS, data);
+    const response = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, data);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.message || 'Payment failed' };
@@ -28,7 +28,7 @@ export const verifyVin = async (lastFourDigits: string) => {
 // Fetch all payments with optional filters
 export const fetchPayments = async (filters?: Record<string, any>) => {
   try {
-    const response = await api.get(API_ENDPOINTS.PAYMENTS, { params: filters });
+    const response = await api.get(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, { params: filters });
     return { success: true, data: response.data };
   } catch (error: unknown) {
     const axiosError = error as AxiosError<{ message?: string }>;
@@ -52,7 +52,7 @@ export const addManualPayment = async (data: {
 }) => {
   try {
     const payload = { ...data, is_manual: true };
-    const response = await api.post(API_ENDPOINTS.PAYMENTS, payload);
+    const response = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, payload);
     return { success: true, data: response.data };
   } catch (error: unknown) {
     const axiosError = error as AxiosError<{ message?: string }>;

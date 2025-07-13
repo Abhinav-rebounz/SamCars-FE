@@ -1,21 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { 
-  Calendar, 
-  Gauge, 
-  Fuel, 
-  Cog, 
-  Car, 
-  Check, 
-  FileText, 
-  Heart, 
-  Share, 
+import { loadStripe } from '@stripe/stripe-js';
+import {
   ArrowLeft,
+  Calendar,
+  Car,
+  Check,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Cog,
+  FileText,
+  Fuel,
+  Gauge,
+  Heart,
+  Share
 } from 'lucide-react';
-import { getVehicleById } from '../../services/vehicle';
+import React, { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { api, API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { getVehicleById } from '../../services/vehicle';
+const stripePromise = loadStripe('your-publishable-key-here');
 
 const VehicleDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -106,10 +109,31 @@ const VehicleDetailsPage: React.FC = () => {
     }
   };
   
-  const handleHoldVehicle = () => {
-    // In a real app, this would navigate to a payment page
-    alert('Redirecting to payment page...');
+
+  const handleHoldVehicle = async () => {
+    if (!vehicle) return;
+  
+    try {
+      // Axios automatically sends JSON and parses response
+      const { data } = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
+        vehicleId: vehicle.id,
+        price: vehicle.price,
+        vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      });
+  
+      if (data.url) {
+        window.location.href = data.url; // Redirect to Stripe checkout URL
+      } else {
+        alert('Failed to initiate payment.');
+      }
+    } catch (error) {
+      console.error('Payment initiation error:', error);
+      alert('Error initiating payment.');
+    }
   };
+  
+
+  
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">

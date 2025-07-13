@@ -78,6 +78,7 @@ export const API_ENDPOINTS = {
     AUCTION_DASHBOARD: '/auction-tracker/dashboard-summary',
     UPDATE_AUCTION_PURCHASE: (id: string) => `/auction-tracker/update?auction_id=${id}`,
     DELETE_AUCTION_PURCHASE: (id: string) => `/auction-tracker/delete/${id}`,
+    
     // Payments
-    PAYMENTS: '/payments',
+    CREATE_CHECKOUT_SESSION: '/payments/create-checkout-session',
 };
