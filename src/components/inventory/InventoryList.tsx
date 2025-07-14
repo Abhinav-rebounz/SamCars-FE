@@ -1,230 +1,324 @@
 import React, { useEffect, useState } from 'react';
-import { getInventory, deleteVehicle } from '../../services/inventory';
-import { Vehicle } from '../../types/vehicle';
-import AddVehicleForm from './AddVehicleForm';
+import { X } from 'lucide-react';
 
-const InventoryList: React.FC = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [filters, setFilters] = useState({
-    search: '',
-    category: 'all',
-    status: 'all',
-    sort_by: 'date_added',
-    sort_order: 'desc',
-    page: '1',
-    limit: '10'
+interface AddVehicleFormProps {
+  initialData?: any;
+  onSuccess: () => void;
+  onCancel: () => void;
+  isEditing?: boolean;
+}
+
+interface ExistingImage {
+  id?: string;
+  url: string;
+  toDelete?: boolean;
+}
+
+const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
+  initialData,
+  onSuccess,
+  onCancel,
+  isEditing = false,
+}) => {
+  const [formData, setFormData] = useState({
+    make: '',
+    model: '',
+    year: '',
+    price: '',
+    mileage: '',
+    carfax_link: '',
   });
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
 
-  const fetchVehicles = async () => {
-    try {
-      setLoading(true);
-      // Filter out empty values and convert to backend expected format
-      const validFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== '')
-      );
-      const response = await getInventory(validFilters);
-      if (response.success && response.vehicles) {
-        setVehicles(response.vehicles);
-      } else {
-        setError(response.error || 'Failed to fetch vehicles');
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        make: initialData.make || '',
+        model: initialData.model || '',
+        year: initialData.year || '',
+        price: initialData.price || '',
+        mileage: initialData.mileage || '',
+        carfax_link: initialData.carfax_link || '',
+      });
+
+      // Handle existing images
+      if (initialData.images && Array.isArray(initialData.images)) {
+        const processedImages = initialData.images.map((img: any, index: number) => ({
+          id: img.id || `existing-${index}`,
+          url: typeof img === 'string' ? img : img.url,
+          toDelete: false,
+        }));
+        setExistingImages(processedImages);
       }
-    } catch (err) {
-      setError('An error occurred while fetching vehicles');
-    } finally {
-      setLoading(false);
+    }
+  }, [initialData]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const filesArray = Array.from(files);
+      setNewImages(prev => [...prev, ...filesArray]);
+      const urls = filesArray.map(file => URL.createObjectURL(file));
+      setPreviewUrls(prev => [...prev, ...urls]);
     }
   };
 
-  const handleDelete = async (vehicleId: string) => {
-    if (window.confirm('Are you sure you want to delete this vehicle?')) {
-      try {
-        const response = await deleteVehicle(vehicleId);
-        if (response.success) {
-          setVehicles(vehicles.filter(v => v.id !== vehicleId));
-          setError(null);
-        } else {
-          setError(response.error || 'Failed to delete vehicle');
-        }
-      } catch (err) {
-        setError('An error occurred while deleting the vehicle');
-      }
+  const removeNewImage = (index: number) => {
+    const urlToRevoke = previewUrls[index];
+    URL.revokeObjectURL(urlToRevoke);
+    
+    setNewImages(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleExistingImageForDeletion = (index: number) => {
+    setExistingImages(prev => 
+      prev.map((img, i) => 
+        i === index ? { ...img, toDelete: !img.toDelete } : img
+      )
+    );
+  };
+
+  const handleImageError = (index: number, type: 'existing' | 'new') => {
+    if (type === 'existing') {
+      setImageLoadErrors(prev => new Set(prev).add(index));
     }
-  };
-
-  const handleEdit = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setShowEditModal(true);
-  };
-
-  const handleEditComplete = () => {
-    setShowEditModal(false);
-    setSelectedVehicle(null);
-    fetchVehicles(); // Refresh the list after edit
   };
 
   useEffect(() => {
-    fetchVehicles();
-  }, [filters]);
+    return () => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
 
-  // 1. Add skeleton loader for loading state
-  if (loading) return (
-    <div className="space-y-4">
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="animate-pulse flex space-x-4 p-4 bg-gray-100 rounded">
-          <div className="rounded bg-gray-300 h-32 w-48" />
-          <div className="flex-1 space-y-2 py-1">
-            <div className="h-6 bg-gray-300 rounded w-1/2" />
-            <div className="h-4 bg-gray-200 rounded w-1/3" />
-            <div className="h-4 bg-gray-200 rounded w-1/4" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-  // 2. Add 'No vehicles found' placeholder for empty state
-  if (!loading && !error && vehicles.length === 0) {
-    return <div className="text-center py-8 text-gray-500">No vehicles found.</div>;
-  }
-  if (error) return <div className="text-red-500 p-4">{error}</div>;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Prepare data for submission
+    const imagesToDelete = existingImages
+      .filter(img => img.toDelete)
+      .map(img => img.id);
+    
+    const submissionData = {
+      ...formData,
+      newImages,
+      imagesToDelete,
+      existingImages: existingImages.filter(img => !img.toDelete),
+    };
+    
+    console.log('Submitting:', submissionData);
+    onSuccess();
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Inventory Management</h1>
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">
+        {isEditing ? 'Edit Vehicle' : 'Add New Vehicle'}
+      </h2>
       
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <input
-          type="text"
-          placeholder="Search"
-          className="border p-2 rounded"
-          value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Category"
-          className="border p-2 rounded"
-          value={filters.category}
-          onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Status"
-          className="border p-2 rounded"
-          value={filters.status}
-          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Sort By"
-          className="border p-2 rounded"
-          value={filters.sort_by}
-          onChange={(e) => setFilters({ ...filters, sort_by: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Sort Order"
-          className="border p-2 rounded"
-          value={filters.sort_order}
-          onChange={(e) => setFilters({ ...filters, sort_order: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Page"
-          className="border p-2 rounded"
-          value={filters.page}
-          onChange={(e) => setFilters({ ...filters, page: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Limit"
-          className="border p-2 rounded"
-          value={filters.limit}
-          onChange={(e) => setFilters({ ...filters, limit: e.target.value })}
-        />
-      </div>
-
-      {/* Vehicle List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {vehicles.map((vehicle) => (
-          <div key={vehicle.id} className="border rounded-lg overflow-hidden shadow-lg">
-            {vehicle.images && vehicle.images[0] && (
-              <img
-                src={vehicle.images[0]}
-                alt={`${vehicle.make} ${vehicle.model}`}
-                className="w-full h-48 object-cover"
-              />
-            )}
-            <div className="p-4">
-              <h2 className="text-xl font-semibold mb-2">
-                {vehicle.year} {vehicle.make} {vehicle.model}
-              </h2>
-              <p className="text-gray-600 mb-2">Mileage: {vehicle.mileage.toLocaleString()} miles</p>
-              <p className="text-green-600 font-bold mb-4">${vehicle.price.toLocaleString()}</p>
-              <div className="flex justify-between items-center">
-                <div className="flex space-x-2">
-                  {vehicle.carfax_link ? (
-                    <button
-                      onClick={() => window.open(vehicle.carfax_link, '_blank')}
-                      className="bg-orange-500 text-white px-3 py-2 rounded hover:bg-orange-600 flex items-center space-x-1"
-                      title="View Carfax Report"
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-xs font-semibold">CARFAX</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleEdit(vehicle)}
-                      className="bg-gray-400 text-white px-3 py-2 rounded hover:bg-gray-500 flex items-center space-x-1"
-                      title="Add Carfax Report Link"
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-xs font-semibold">ADD CARFAX</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleEdit(vehicle)}
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                  >
-                    Edit
-                  </button>
-                </div>
-                <button
-                  onClick={() => handleDelete(vehicle.id)}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Make</label>
+            <input
+              type="text"
+              name="make"
+              value={formData.make}
+              onChange={handleChange}
+              placeholder="Enter make"
+              className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
           </div>
-        ))}
-      </div>
-
-      {/* Edit Modal */}
-      {showEditModal && selectedVehicle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-4">Edit Vehicle</h2>
-            <AddVehicleForm
-              initialData={selectedVehicle}
-              onSuccess={handleEditComplete}
-              onCancel={() => setShowEditModal(false)}
-              isEditing={true}
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Model</label>
+            <input
+              type="text"
+              name="model"
+              value={formData.model}
+              onChange={handleChange}
+              placeholder="Enter model"
+              className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
             />
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
+            <input
+              type="number"
+              name="year"
+              value={formData.year}
+              onChange={handleChange}
+              placeholder="Enter year"
+              min="1900"
+              max={new Date().getFullYear() + 1}
+              className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Price ($)</label>
+            <input
+              type="number"
+              name="price"
+              value={formData.price}
+              onChange={handleChange}
+              placeholder="Enter price"
+              min="0"
+              step="0.01"
+              className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mileage</label>
+            <input
+              type="number"
+              name="mileage"
+              value={formData.mileage}
+              onChange={handleChange}
+              placeholder="Enter mileage"
+              min="0"
+              className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Carfax Link</label>
+          <input
+            type="url"
+            name="carfax_link"
+            value={formData.carfax_link}
+            onChange={handleChange}
+            placeholder="Enter Carfax link"
+            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Images</label>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleImageChange}
+            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            Select multiple images to upload. Supported formats: JPG, PNG, GIF
+          </p>
+        </div>
+
+        {/* Image Previews */}
+        {(existingImages.length > 0 || previewUrls.length > 0) && (
+          <div>
+            <h3 className="text-lg font-medium text-gray-700 mb-3">Image Preview</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {/* Existing images */}
+              {existingImages.map((image, idx) => (
+                <div
+                  key={`existing-${idx}`}
+                  className={`relative group ${image.toDelete ? 'opacity-50' : ''}`}
+                >
+                  {!imageLoadErrors.has(idx) ? (
+                    <img
+                      src={image.url}
+                      alt={`Existing vehicle image ${idx + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
+                      onError={() => handleImageError(idx, 'existing')}
+                      onLoad={() => {
+                        setImageLoadErrors(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(idx);
+                          return newSet;
+                        });
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-32 bg-gray-200 rounded-lg border-2 border-gray-300 flex items-center justify-center">
+                      <span className="text-gray-500 text-sm">Failed to load</span>
+                    </div>
+                  )}
+                  
+                  <button
+                    type="button"
+                    onClick={() => toggleExistingImageForDeletion(idx)}
+                    className={`absolute top-2 right-2 p-1 rounded-full ${
+                      image.toDelete 
+                        ? 'bg-red-500 text-white' 
+                        : 'bg-black bg-opacity-50 text-white hover:bg-opacity-75'
+                    } transition-all duration-200`}
+                    title={image.toDelete ? 'Restore image' : 'Mark for deletion'}
+                  >
+                    <X size={16} />
+                  </button>
+                  
+                  {image.toDelete && (
+                    <div className="absolute inset-0 bg-red-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                      <span className="text-red-700 font-medium text-sm">Will be deleted</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* New image previews */}
+              {previewUrls.map((url, idx) => (
+                <div key={`preview-${idx}`} className="relative group">
+                  <img
+                    src={url}
+                    alt={`New vehicle image ${idx + 1}`}
+                    className="w-full h-32 object-cover rounded-lg border-2 border-blue-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeNewImage(idx)}
+                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors duration-200"
+                    title="Remove image"
+                  >
+                    <X size={16} />
+                  </button>
+                  <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                    New
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex space-x-4 pt-6 border-t border-gray-200">
+          <button
+            type="submit"
+            className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+          >
+            {isEditing ? 'Update Vehicle' : 'Add Vehicle'}
+          </button>
+          <button
+            type="button"
+            className="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors duration-200 font-medium"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
 
-export default InventoryList; 
+export default AddVehicleForm;

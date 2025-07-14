@@ -26,6 +26,8 @@ interface Vehicle {
   stock_number?: string;
   created_at?: string;
   updated_at?: string;
+  carfax_link?: string;
+  available?: boolean;
 }
 
 interface ErrorResponse {
@@ -58,12 +60,14 @@ const mapBackendVehicle = (v: any): Vehicle => ({
   description: v.description || '',
   features: Array.isArray(v.features) ? v.features : (v.features ? JSON.parse(v.features) : []),
   tags: Array.isArray(v.tags) ? v.tags : (v.tags ? JSON.parse(v.tags) : []),
-  images: v.image_url ? [v.image_url] : [],
+  images: Array.isArray(v.images) ? v.images : (v.images ? JSON.parse(v.images) : []),
   location: v.location || '',
   is_featured: v.is_featured || false,
   stock_number: v.stock_number || '',
   created_at: v.created_at,
   updated_at: v.updated_at,
+  carfax_link: v.carfax_link || '',
+  available: v.available || false,
 });
 
 export const getVehicleById = async (vehicleId: string): Promise<GetVehicleResponse> => {
