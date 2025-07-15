@@ -32,6 +32,7 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
+  const [vehicles, setVehicles] = useState<any[]>([]); // Replace 'any' with your Vehicle type if available
 
   useEffect(() => {
     if (initialData) {
@@ -317,6 +318,64 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Add new columns/fields to the vehicle list display */}
+      {/* For demonstration, assume a table layout. If using cards, adapt accordingly. */}
+
+      {/* Vehicle List Table */}
+      <table className="min-w-full divide-y divide-gray-200 mt-8">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-4 py-2">Make</th>
+            <th className="px-4 py-2">Model</th>
+            <th className="px-4 py-2">Year</th>
+            <th className="px-4 py-2">Price</th>
+            <th className="px-4 py-2">Mileage</th>
+            <th className="px-4 py-2">VIN</th>
+            <th className="px-4 py-2">Fuel Type</th>
+            <th className="px-4 py-2">Engine</th>
+            <th className="px-4 py-2">Condition</th>
+            <th className="px-4 py-2">Features</th>
+            <th className="px-4 py-2">Location</th>
+            <th className="px-4 py-2">Stock #</th>
+            <th className="px-4 py-2">Is Featured</th>
+            <th className="px-4 py-2">Tags</th>
+            <th className="px-4 py-2">Status</th>
+            <th className="px-4 py-2">Images</th>
+            <th className="px-4 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {/* Replace with your vehicle data map */}
+          {Array.isArray(vehicles) && vehicles.map((vehicle: any, idx: number) => (
+            <tr key={vehicle.id || idx}>
+              <td className="px-4 py-2">{vehicle.make}</td>
+              <td className="px-4 py-2">{vehicle.model}</td>
+              <td className="px-4 py-2">{vehicle.year}</td>
+              <td className="px-4 py-2">{vehicle.price}</td>
+              <td className="px-4 py-2">{vehicle.mileage}</td>
+              <td className="px-4 py-2">{vehicle.vin}</td>
+              <td className="px-4 py-2">{vehicle.fuel_type}</td>
+              <td className="px-4 py-2">{vehicle.engine}</td>
+              <td className="px-4 py-2">{vehicle.condition}</td>
+              <td className="px-4 py-2">{Array.isArray(vehicle.features) ? vehicle.features.join(', ') : ''}</td>
+              <td className="px-4 py-2">{vehicle.location}</td>
+              <td className="px-4 py-2">{vehicle.stock_number}</td>
+              <td className="px-4 py-2">{vehicle.is_featured ? 'Yes' : 'No'}</td>
+              <td className="px-4 py-2">{Array.isArray(vehicle.tags) ? vehicle.tags.join(', ') : ''}</td>
+              <td className="px-4 py-2">{vehicle.status}</td>
+              <td className="px-4 py-2">
+                {Array.isArray(vehicle.images) && vehicle.images.length > 0 ? (
+                  <img src={vehicle.images[0]} alt="Vehicle" className="w-16 h-12 object-cover rounded" />
+                ) : 'No Image'}
+              </td>
+              <td className="px-4 py-2">
+                {/* Add edit/delete buttons here */}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };

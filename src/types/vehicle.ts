@@ -1,10 +1,10 @@
 export interface Vehicle {
-  id: string;
+  id: string | number;
   make: string;
   model: string;
   year: number;
   price: number;
-  mileage: number;
+  mileage?: number;
   vin?: string;
   exterior_color?: string;
   interior_color?: string;
@@ -17,11 +17,11 @@ export interface Vehicle {
   tags?: string[];
   images: string[];
   status: string;
-  description: string;
+  description?: string;
   stock_number?: string;
   location?: string;
   is_featured?: boolean;
   carfax_link?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 } 

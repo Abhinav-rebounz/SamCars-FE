@@ -6,20 +6,17 @@ import {
   Plus,
   Search,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ExternalLink
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL, API_ENDPOINTS, api } from '../../config/api';
 import { getInventory, deleteVehicle } from '../../services/inventory';
 import { Vehicle as VehicleType } from '../../types/vehicle';
+import AddVehicleForm from '../../components/inventory/AddVehicleForm';
 
-type Vehicle = VehicleType & {
-  isSold: boolean;
-  dateAdded: string;
-  exteriorColor: string;
-  interiorColor: string;
-  bodyType: string;
-};
+type Vehicle = VehicleType;
 
 // Define pagination data from API
 interface Pagination {
@@ -31,32 +28,6 @@ interface Pagination {
   has_previous: boolean;
 }
 
-// State for the new vehicle form
-interface NewVehicle {
-  make: string;
-  model: string;
-  year: number;
-  price: number;
-  mileage: number;
-  vin: string;
-  exteriorColor: string;
-  interiorColor: string;
-  transmission: string;
-  bodyType: string;
-  description: string;
-  status: string;
-  tags: string[];
-  features: string[];
-  images: (File | string)[]; // Allow both File objects and URLs
-  fuel_type: string;
-  engine: string;
-  condition: string;
-  stock_number: string;
-  location: string;
-  is_featured: boolean;
-  carfax_link: string;
-}
-
 const Inventory: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,46 +36,18 @@ const Inventory: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [addFormError, setAddFormError] = useState<string | null>(null);
-  const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [filterStatus, setFilterStatus] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
 
-  // State for the new vehicle form
-  const [newVehicle, setNewVehicle] = useState<NewVehicle>({
-    make: '',
-    model: '',
-    year: new Date().getFullYear(),
-    price: 0,
-    mileage: 0,
-    vin: '',
-    exteriorColor: '',
-    interiorColor: '',
-    transmission: '',
-    bodyType: '',
-    description: '',
-    status: 'available',
-    tags: [],
-    features: [],
-    images: [],
-    fuel_type: '',
-    engine: '',
-    condition: '',
-    stock_number: '',
-    location: '',
-    is_featured: false,
-    carfax_link: '',
-  });
+  const navigate = useNavigate();
 
   // Fetch vehicles from API
   const fetchVehicles = async () => {
@@ -121,27 +64,7 @@ const Inventory: React.FC = () => {
       };
       const response = await getInventory(filters);
       if (response.success && response.vehicles) {
-        setVehicles(response.vehicles.map((v) => ({
-          ...v,
-          isSold: v.status !== 'available',
-          dateAdded: v.created_at || new Date().toISOString(),
-          exteriorColor: v.exterior_color || '',
-          interiorColor: v.interior_color || '',
-          bodyType: v.body_type || '',
-          vin: v.vin || '',
-          transmission: v.transmission || '',
-          description: v.description || '',
-          tags: v.tags ?? [],
-          features: v.features ?? [],
-          images: v.images ?? [],
-          fuel_type: v.fuel_type || '',
-          engine: v.engine || '',
-          condition: v.condition || '',
-          stock_number: v.stock_number || '',
-          location: v.location || '',
-          is_featured: v.is_featured || false,
-          carfax_link: v.carfax_link || '',
-        })));
+        setVehicles(response.vehicles);
         setPagination(response.pagination);
       } else {
         setError(response.error || 'Failed to fetch vehicles');
@@ -168,7 +91,7 @@ const Inventory: React.FC = () => {
     let aValue: any = a[sortField as keyof typeof a];
     let bValue: any = b[sortField as keyof typeof b];
 
-    if (sortField === 'dateAdded') {
+    if (sortField === 'created_at') {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
     }
@@ -184,7 +107,7 @@ const Inventory: React.FC = () => {
       year: 'year',
       price: 'price',
       mileage: 'mileage',
-      dateAdded: 'date_added',
+      created_at: 'created_at',
     };
     const apiField = fieldMap[field] || field;
     if (apiField === sortField) {
@@ -196,8 +119,8 @@ const Inventory: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleDelete = (id: string) => {
-    setSelectedVehicleId(id);
+  const handleDelete = (id: string | number) => {
+    setSelectedVehicleId(id.toString());
     setShowDeleteModal(true);
   };
 
@@ -209,7 +132,10 @@ const Inventory: React.FC = () => {
       if (response.success) {
         setShowDeleteModal(false);
         setSelectedVehicleId(null);
+        setSuccessMessage('Vehicle deleted successfully!');
         await fetchVehicles(); // Refetch to sync with backend
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(null), 3000);
       } else {
         setError(response.error || 'Failed to delete vehicle');
       }
@@ -219,308 +145,9 @@ const Inventory: React.FC = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    if (selectedVehicle) {
-      setSelectedVehicle(prev => ({
-        ...prev!,
-        [name]: value
-      }));
-    }
-    
-    setNewVehicle(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleTagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
-    if (selectedVehicle) {
-      setSelectedVehicle(prev => {
-        const currentTags = prev?.tags || [];
-        const newTags = checked
-          ? [...currentTags, value]
-          : currentTags.filter(tag => tag !== value);
-        return { ...prev!, tags: newTags };
-      });
-    } else {
-      setNewVehicle(prev => {
-        const newTags = checked
-          ? [...prev.tags, value]
-          : prev.tags.filter(tag => tag !== value);
-        return { ...prev, tags: newTags };
-      });
-    }
-  };
-
-  const handleFeatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
-    if (selectedVehicle) {
-      setSelectedVehicle(prev => {
-        const currentFeatures = prev?.features || [];
-        const newFeatures = checked
-          ? [...currentFeatures, value]
-          : currentFeatures.filter(feature => feature !== value);
-        return { ...prev!, features: newFeatures };
-      });
-    } else {
-      setNewVehicle(prev => {
-        const newFeatures = checked
-          ? [...prev.features, value]
-          : prev.features.filter(feature => feature !== value);
-        return { ...prev, features: newFeatures };
-      });
-    }
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setNewVehicle(prev => ({
-        ...prev,
-        images: [...prev.images, ...newFiles]
-      }));
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    setNewVehicle(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
-  };
-
-  const renderImagePreview = (image: File | string, index: number) => {
-    const imageUrl = image instanceof File ? URL.createObjectURL(image) : image;
-    return (
-      <div key={index} className="relative group">
-        <img
-          src={imageUrl}
-          alt={`Preview ${index + 1}`}
-          className="w-full h-32 object-cover rounded-lg"
-          onError={(e) => {
-            console.error(`Error loading image ${index}:`, e);
-            const target = e.target as HTMLImageElement;
-            target.src = 'https://via.placeholder.com/150?text=Image+Error';
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => handleRemoveImage(index)}
-          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-    );
-  };
-
-  // Cleanup function for object URLs
-  useEffect(() => {
-    return () => {
-      // Cleanup any object URLs created for image previews
-      newVehicle.images.forEach(image => {
-        if (image instanceof File) {
-          URL.revokeObjectURL(URL.createObjectURL(image));
-        }
-      });
-    };
-  }, [newVehicle.images]);
-
-  const handleAddVehicleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (selectedVehicle) {
-        // Use FormData for updates to match backend expectations
-        const formData = new FormData();
-        
-        // Map camelCase field names to snake_case for backend
-        const fieldNameMap: { [key: string]: string } = {
-          bodyType: 'body_type',
-          exteriorColor: 'exterior_color',
-          interiorColor: 'interior_color'
-        };
-        
-        // Use selectedVehicle for updates since it contains the current form state
-        console.log('selectedVehicle before update:', selectedVehicle);
-        
-        // Only include fields that should be updated, excluding system fields
-        const fieldsToUpdate = [
-          'make', 'model', 'year', 'price', 'mileage', 'vin', 
-          'exteriorColor', 'interiorColor', 'transmission', 'bodyType',
-          'fuel_type', 'engine', 'condition', 'status', 'description',
-          'tags', 'features', 'carfax_link', 'location', 'stock_number', 'is_featured'
-        ];
-        
-        fieldsToUpdate.forEach(key => {
-          const fieldName = fieldNameMap[key] || key;
-          const value = (selectedVehicle as any)[key];
-          
-          if (value !== undefined && value !== null) {
-            if (key === 'tags' || key === 'features') {
-              console.log(`Adding ${fieldName}:`, JSON.stringify(value));
-              formData.append(fieldName, JSON.stringify(value));
-            } else {
-              console.log(`Adding ${fieldName}:`, value);
-              formData.append(fieldName, value.toString());
-            }
-          }
-        });
-        
-        console.log('Update data (FormData):', Object.fromEntries(formData.entries()));
-        
-        const response = await api.put(
-          API_ENDPOINTS.UPDATE_VEHICLE(selectedVehicle.id),
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          }
-        );
-        console.log('Update response:', response.data);
-        setSuccessMessage('Vehicle updated successfully');
-        setErrorMessage(null);
-        
-        // TODO: Handle image uploads separately if needed
-        // For now, images will be preserved as they are
-      } else {
-        // Add new vehicle - use FormData for image uploads
-        const formData = new FormData();
-        
-        // Add all vehicle data to formData
-        Object.entries(newVehicle).forEach(([key, value]) => {
-          // Map camelCase field names to snake_case for backend
-          const fieldNameMap: { [key: string]: string } = {
-            bodyType: 'body_type',
-            exteriorColor: 'exterior_color',
-            interiorColor: 'interior_color'
-          };
-          
-          const fieldName = fieldNameMap[key] || key;
-          
-          console.log(`Mapping field: ${key} -> ${fieldName}, value:`, value);
-          
-          if (key === 'images') {
-            // Handle images - only send new files, keep existing URLs
-            const images = value as (File | string)[];
-            images.forEach((image, index) => {
-              if (image instanceof File) {
-                formData.append(`images`, image);
-              } else {
-                formData.append(`existingImages`, image);
-              }
-            });
-          } else if (key === 'tags' || key === 'features') {
-            // Handle arrays - convert to JSON string
-            const jsonString = JSON.stringify(value);
-            console.log(`Converting ${key} to JSON string:`, jsonString);
-            formData.append(fieldName, jsonString);
-          } else {
-            formData.append(fieldName, value.toString());
-          }
-        });
-        
-        // Debug: Log all FormData entries
-        console.log('FormData entries:');
-        for (let [key, value] of formData.entries()) {
-          console.log(`${key}: ${value}`);
-        }
-        
-        // Debug: Check if arrays are properly converted
-        console.log('Tags array:', newVehicle.tags);
-        console.log('Features array:', newVehicle.features);
-        
-        // Debug: Log the newVehicle object
-        console.log('newVehicle object:', newVehicle);
-
-        // Add new vehicle
-        const response = await api.post(
-          API_ENDPOINTS.ADD_VEHICLE,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          }
-        );
-        console.log('Add response:', response.data);
-        setSuccessMessage('Vehicle added successfully');
-        setErrorMessage(null);
-      }
-
-      // Clear form and close modal
-      setNewVehicle({
-        make: '',
-        model: '',
-        year: new Date().getFullYear(),
-        price: 0,
-        mileage: 0,
-        vin: '',
-        exteriorColor: '',
-        interiorColor: '',
-        transmission: '',
-        bodyType: '',
-        description: '',
-        status: 'available',
-        tags: [],
-        features: [],
-        images: [],
-        fuel_type: '',
-        engine: '',
-        condition: '',
-        stock_number: '',
-        location: '',
-        is_featured: false,
-        carfax_link: '',
-      });
-      setShowAddModal(false);
-      setSelectedVehicle(null);
-      fetchVehicles();
-    } catch (error: any) {
-      console.error('Error submitting vehicle:', error);
-      if (error.response?.data?.error === 'duplicate_vin') {
-        setErrorMessage('A vehicle with this VIN already exists');
-        setSuccessMessage(null);
-      } else {
-        setErrorMessage(error.response?.data?.message || 'Error submitting vehicle');
-        setSuccessMessage(null);
-      }
-    }
-  };
-
   const closeAddModal = () => {
     setShowAddModal(false);
-    setNewVehicle({
-      make: '',
-      model: '',
-      year: new Date().getFullYear(),
-      price: 0,
-      mileage: 0,
-      vin: '',
-      exteriorColor: '',
-      interiorColor: '',
-      transmission: '',
-      bodyType: '',
-      description: '',
-      status: 'available',
-      tags: [],
-      features: [],
-      images: [],
-      fuel_type: '',
-      engine: '',
-      condition: '',
-      stock_number: '',
-      location: '',
-      is_featured: false,
-      carfax_link: '',
-    });
-    setAddFormError(null);
-    setAddFormSuccess(null);
+    setSelectedVehicle(null);
   };
 
   const handlePageChange = (page: number) => {
@@ -539,63 +166,28 @@ const Inventory: React.FC = () => {
   };
 
   const handleEdit = (vehicle: Vehicle) => {
-    console.log('Editing vehicle:', vehicle); // Debug log
+    console.log('Editing vehicle:', vehicle);
+    console.log('Setting selectedVehicle and showEditModal to true');
     setSelectedVehicle(vehicle);
-    setNewVehicle({
-      make: vehicle.make,
-      model: vehicle.model,
-      year: vehicle.year,
-      price: vehicle.price,
-      mileage: vehicle.mileage,
-      vin: vehicle.vin || '',
-      exteriorColor: vehicle.exteriorColor || '',
-      interiorColor: vehicle.interiorColor || '',
-      transmission: vehicle.transmission || '',
-      bodyType: vehicle.bodyType || '',
-      description: vehicle.description,
-      status: vehicle.status || 'available',
-      tags: vehicle.tags ?? [],
-      features: vehicle.features ?? [],
-      images: vehicle.images ?? [], // Keep existing images as URLs
-      fuel_type: vehicle.fuel_type || '',
-      engine: vehicle.engine || '',
-      condition: vehicle.condition || '',
-      stock_number: vehicle.stock_number || '',
-      location: vehicle.location || '',
-      is_featured: vehicle.is_featured || false,
-      carfax_link: vehicle.carfax_link || '',
-    });
     setShowEditModal(true);
+    console.log('Edit modal should now be visible');
   };
 
   const handleEditComplete = () => {
     setShowEditModal(false);
     setSelectedVehicle(null);
-    setNewVehicle({
-      make: '',
-      model: '',
-      year: new Date().getFullYear(),
-      price: 0,
-      mileage: 0,
-      vin: '',
-      exteriorColor: '',
-      interiorColor: '',
-      transmission: '',
-      bodyType: '',
-      description: '',
-      status: 'available',
-      tags: [],
-      features: [],
-      images: [],
-      fuel_type: '',
-      engine: '',
-      condition: '',
-      stock_number: '',
-      location: '',
-      is_featured: false,
-      carfax_link: '',
-    });
+    setSuccessMessage('Vehicle updated successfully!');
     fetchVehicles(); // Refresh the list after edit
+    // Clear success message after 3 seconds
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleAddComplete = () => {
+    setShowAddModal(false);
+    setSuccessMessage('Vehicle added successfully!');
+    fetchVehicles(); // Refresh the list after add
+    // Clear success message after 3 seconds
+    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   const handleImageError = (vehicleId: string) => {
@@ -605,19 +197,35 @@ const Inventory: React.FC = () => {
     }));
   };
 
+  const handleVehicleClick = (id: string | number) => {
+    navigate(`/admin/inventory/${id}`);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Success Message */}
       {successMessage && (
-        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-          {successMessage}
+        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded flex justify-between items-center">
+          <span>{successMessage}</span>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-green-600 hover:text-green-800 font-bold text-xl"
+          >
+            ×
+          </button>
         </div>
       )}
 
       {/* Error Message */}
-      {errorMessage && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          {errorMessage}
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded flex justify-between items-center">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-600 hover:text-red-800 font-bold text-xl"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -695,12 +303,6 @@ const Inventory: React.FC = () => {
           ))}
         </div>
       )}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <strong className="font-bold">Error!</strong>
-          <span className="block sm:inline"> {error}</span>
-        </div>
-      )}
 
       {/* Inventory Table */}
       {!loading && !error && vehicles.length === 0 && (
@@ -760,99 +362,36 @@ const Inventory: React.FC = () => {
                       )}
                     </div>
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    VIN
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Tags
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Features
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Transmission
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Body Type
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Fuel Type
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Condition
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Stock #
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    CarFax Link
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('dateAdded')}
-                  >
-                    <div className="flex items-center">
-                      Date Added
-                      {sortField === 'date_added' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedVehicles.map((vehicle) => (
-                  <tr key={vehicle.id}>
+                  <tr key={vehicle.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleVehicleClick(vehicle.id)}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          {vehicle.images && vehicle.images.length > 0 && !imageErrors[vehicle.id] ? (
+                          {vehicle.images && vehicle.images.length > 0 && !imageErrors[vehicle.id.toString()] ? (
                             <img
-                              className="h-10 w-10 rounded-full object-cover"
+                              className="h-10 w-10 rounded-lg object-cover"
                               src={vehicle.images[0]}
                               alt={`${vehicle.make} ${vehicle.model}`}
-                              onError={() => handleImageError(vehicle.id)}
+                              onError={() => handleImageError(vehicle.id.toString())}
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <ImageIcon className="h-6 w-6 text-gray-400" />
+                            <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                              <ImageIcon className="h-5 w-5 text-gray-400" />
                             </div>
                           )}
                         </div>
@@ -861,122 +400,69 @@ const Inventory: React.FC = () => {
                             {vehicle.make} {vehicle.model}
                           </div>
                           <div className="text-sm text-gray-500">
-                            VIN: {vehicle.vin}
+                            Engine: {vehicle.engine || 'N/A'}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {vehicle.year}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${vehicle.price.toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.mileage.toLocaleString()} mi
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {vehicle.mileage ? vehicle.mileage.toLocaleString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {vehicle.vin || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         vehicle.status === 'available' ? 'bg-green-100 text-green-800' :
                         vehicle.status === 'sold' ? 'bg-red-100 text-red-800' :
                         vehicle.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        vehicle.status === 'maintenance' ? 'bg-orange-100 text-orange-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {vehicle.status ? vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1) : 'Unknown'}
+                        {vehicle.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {vehicle.tags && vehicle.tags.length > 0 ? (
-                          vehicle.tags.map((tag, index) => (
-                            <span
-                              key={index}
-                              className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"
-                            >
-                              {tag}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-gray-400 text-xs">No tags</span>
-                        )}
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {vehicle.location || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {vehicle.features && vehicle.features.length > 0 ? (
-                          vehicle.features.map((feature, index) => (
-                            <span
-                              key={index}
-                              className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
-                            >
-                              {feature}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-gray-400 text-xs">No features</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.transmission || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.bodyType || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.fuel_type || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.condition || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.stock_number || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.location || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle.carfax_link ? (
-                        <a
-                          href={vehicle.carfax_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-orange-600 hover:text-orange-700 underline"
-                        >
-                          View CarFax
-                        </a>
-                      ) : (
-                        <span className="text-gray-400">No link</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(vehicle.dateAdded).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
                         {vehicle.carfax_link && (
                           <button
-                            onClick={() => window.open(vehicle.carfax_link, '_blank')}
-                            className="text-orange-600 hover:text-orange-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(vehicle.carfax_link, '_blank');
+                            }}
+                            className="text-orange-600 hover:text-orange-900"
                             title="View Carfax Report"
                           >
-                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <ExternalLink className="h-4 w-4" />
                           </button>
                         )}
-                        <button 
-                          className="text-blue-700 hover:text-blue-800"
-                          onClick={() => handleEdit(vehicle)}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(vehicle);
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Edit Vehicle"
                         >
-                          <Edit className="h-5 w-5" />
+                          <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => handleDelete(vehicle.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(vehicle.id);
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete Vehicle"
                         >
-                          <Trash2 className="h-5 w-5" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -985,68 +471,59 @@ const Inventory: React.FC = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
 
-          {/* Pagination */}
-          {pagination && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-              <div className="flex-1 flex justify-between sm:hidden">
+      {/* Pagination */}
+      {pagination && pagination.total_pages > 1 && (
+        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+          <div className="flex-1 flex justify-between sm:hidden">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={!pagination.has_previous}
+              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={!pagination.has_next}
+              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Showing <span className="font-medium">{((pagination.current_page - 1) * pagination.items_per_page) + 1}</span> to{' '}
+                <span className="font-medium">
+                  {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)}
+                </span>{' '}
+                of <span className="font-medium">{pagination.total_items}</span> results
+              </p>
+            </div>
+            <div>
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={!pagination.has_previous}
-                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Previous
+                  <span className="sr-only">Previous</span>
+                  <ChevronDown className="h-5 w-5 rotate-90" />
                 </button>
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={!pagination.has_next}
-                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Next
+                  <span className="sr-only">Next</span>
+                  <ChevronDown className="h-5 w-5 rotate-90" />
                 </button>
-              </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                    <span className="font-medium">{Math.min(currentPage * itemsPerPage, pagination.total_items)}</span> of{' '}
-                    <span className="font-medium">{pagination.total_items}</span> results
-                  </p>
-                </div>
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={!pagination.has_previous}
-                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <span className="sr-only">Previous</span>
-                      <ChevronUp className="h-5 w-5 rotate-90" />
-                    </button>
-                    {Array.from({ length: pagination.total_pages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`relative inline-flex items-center px-4 py-2 border ${
-                          page === currentPage ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                        } text-sm font-medium`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={!pagination.has_next}
-                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <span className="sr-only">Next</span>
-                      <ChevronDown className="h-5 w-5 rotate-90" />
-                    </button>
-                  </nav>
-                </div>
-              </div>
+              </nav>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -1060,7 +537,7 @@ const Inventory: React.FC = () => {
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 relative">
                 <button
                   className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
@@ -1087,398 +564,67 @@ const Inventory: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Success and Error Messages */}
-                {addFormError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4" role="alert">
-                    <strong className="font-bold">Error!</strong>
-                    <span className="block sm:inline"> {addFormError}</span>
+                <div className="mt-5 sm:mt-4">
+                  <AddVehicleForm
+                    onSuccess={handleAddComplete}
+                    onCancel={closeAddModal}
+                    isEditing={false}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Vehicle Modal */}
+      {(() => {
+        console.log('showEditModal:', showEditModal, 'selectedVehicle:', selectedVehicle);
+        return null;
+      })()}
+      {showEditModal && selectedVehicle && (
+        <div className="fixed z-10 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 relative">
+                <button
+                  className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+                  onClick={() => setShowEditModal(false)}
+                  aria-label="Close Edit Vehicle Form"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <Edit className="h-6 w-6 text-blue-700" />
                   </div>
-                )}
-                {addFormSuccess && (
-                  <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-4" role="alert">
-                    <strong className="font-bold">Success!</strong>
-                    <span className="block sm:inline"> {addFormSuccess}</span>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                      Edit Vehicle
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Update the vehicle information below.
+                      </p>
+                    </div>
                   </div>
-                )}
+                </div>
 
                 <div className="mt-5 sm:mt-4">
-                  <form className="space-y-4" onSubmit={handleAddVehicleSubmit}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="make" className="block text-sm font-medium text-gray-700">
-                          Make
-                        </label>
-                        <input
-                          type="text"
-                          name="make"
-                          id="make"
-                          value={selectedVehicle ? selectedVehicle.make : newVehicle.make}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="model" className="block text-sm font-medium text-gray-700">
-                          Model
-                        </label>
-                        <input
-                          type="text"
-                          name="model"
-                          id="model"
-                          value={selectedVehicle ? selectedVehicle.model : newVehicle.model}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label htmlFor="year" className="block text-sm font-medium text-gray-700">
-                          Year
-                        </label>
-                        <input
-                          type="number"
-                          name="year"
-                          id="year"
-                          value={selectedVehicle ? selectedVehicle.year : newVehicle.year}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-                          Price
-                        </label>
-                        <input
-                          type="number"
-                          name="price"
-                          id="price"
-                          value={selectedVehicle ? selectedVehicle.price : newVehicle.price}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="mileage" className="block text-sm font-medium text-gray-700">
-                          Mileage
-                        </label>
-                        <input
-                          type="number"
-                          name="mileage"
-                          id="mileage"
-                          value={selectedVehicle ? selectedVehicle.mileage : newVehicle.mileage}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="vin" className="block text-sm font-medium text-gray-700">
-                        VIN
-                      </label>
-                      <input
-                        type="text"
-                        name="vin"
-                        id="vin"
-                        value={selectedVehicle ? selectedVehicle.vin : newVehicle.vin}
-                        onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="exteriorColor" className="block text-sm font-medium text-gray-700">
-                          Exterior Color
-                        </label>
-                        <input
-                          type="text"
-                          name="exteriorColor"
-                          id="exteriorColor"
-                          value={selectedVehicle ? selectedVehicle.exteriorColor : newVehicle.exteriorColor}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="interiorColor" className="block text-sm font-medium text-gray-700">
-                          Interior Color
-                        </label>
-                        <input
-                          type="text"
-                          name="interiorColor"
-                          id="interiorColor"
-                          value={selectedVehicle ? selectedVehicle.interiorColor : newVehicle.interiorColor}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="transmission" className="block text-sm font-medium text-gray-700">
-                          Transmission
-                        </label>
-                        <select
-                          name="transmission"
-                          id="transmission"
-                          value={selectedVehicle ? selectedVehicle.transmission : newVehicle.transmission}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        >
-                          <option value="">Select transmission</option>
-                          <option value="automatic">Automatic</option>
-                          <option value="manual">Manual</option>
-                          <option value="cvt">CVT</option>
-                          <option value="semi_automatic">Semi-Automatic</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                          Status
-                        </label>
-                        <select
-                          name="status"
-                          id="status"
-                          value={selectedVehicle ? selectedVehicle.status : newVehicle.status}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        >
-                          <option value="">Select status</option>
-                          <option value="available">Available</option>
-                          <option value="sold">Sold</option>
-                          <option value="pending">Pending</option>
-                          <option value="maintenance">Maintenance</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="bodyType" className="block text-sm font-medium text-gray-700">
-                          Body Type
-                        </label>
-                        <select
-                          name="bodyType"
-                          id="bodyType"
-                          value={selectedVehicle ? selectedVehicle.bodyType : newVehicle.bodyType}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        >
-                          <option value="">Select body type</option>
-                          <option value="sedan">Sedan</option>
-                          <option value="suv">SUV</option>
-                          <option value="truck">Truck</option>
-                          <option value="coupe">Coupe</option>
-                          <option value="convertible">Convertible</option>
-                          <option value="hatchback">Hatchback</option>
-                          <option value="minivan">Minivan</option>
-                          <option value="van">Van</option>
-                          <option value="wagon">Wagon</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
-                          Fuel Type
-                        </label>
-                        <select
-                          name="fuel_type"
-                          id="fuel_type"
-                          value={selectedVehicle ? selectedVehicle.fuel_type : newVehicle.fuel_type}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        >
-                          <option value="">Select fuel type</option>
-                          <option value="gasoline">Gasoline</option>
-                          <option value="diesel">Diesel</option>
-                          <option value="electric">Electric</option>
-                          <option value="hybrid">Hybrid</option>
-                          <option value="plug_in_hybrid">Plug-in Hybrid</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="condition" className="block text-sm font-medium text-gray-700">
-                          Condition
-                        </label>
-                        <select
-                          name="condition"
-                          id="condition"
-                          value={selectedVehicle ? selectedVehicle.condition : newVehicle.condition}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        >
-                          <option value="">Select condition</option>
-                          <option value="new">New</option>
-                          <option value="used">Used</option>
-                          <option value="certified_pre_owned">Certified Pre-Owned</option>
-                          <option value="excellent">Excellent</option>
-                          <option value="good">Good</option>
-                          <option value="fair">Fair</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label htmlFor="stock_number" className="block text-sm font-medium text-gray-700">
-                          Stock Number
-                        </label>
-                        <input
-                          type="text"
-                          name="stock_number"
-                          id="stock_number"
-                          value={selectedVehicle ? selectedVehicle.stock_number : newVehicle.stock_number}
-                          onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        name="location"
-                        id="location"
-                        value={selectedVehicle ? selectedVehicle.location : newVehicle.location}
-                        onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                        Description
-                      </label>
-                      <textarea
-                        name="description"
-                        id="description"
-                        rows={3}
-                        value={selectedVehicle ? selectedVehicle.description : newVehicle.description}
-                        onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tags
-                      </label>
-                      <div className="mt-2 flex flex-wrap gap-3">
-                        {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History', 'Mark as Featured'].map(tag => (
-                          <div key={tag} className="flex items-center">
-                            <input
-                              id={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`}
-                              name="tags"
-                              type="checkbox"
-                              value={tag}
-                              checked={selectedVehicle ? (selectedVehicle.tags || []).includes(tag) : newVehicle.tags.includes(tag)}
-                              onChange={handleTagChange}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
-                              {tag}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Features
-                      </label>
-                      <div className="mt-2 flex flex-wrap gap-3">
-                        {['Bluetooth', 'Navigation', 'Backup Camera', 'Heated Seats', 'Sunroof', 'Leather Interior', 'Alloy Wheels', 'Remote Start', 'Apple CarPlay', 'Android Auto', 'Blind Spot Monitor', 'Lane Departure Warning', 'Adaptive Cruise Control', 'Parking Sensors', 'Premium Audio'].map(feature => (
-                          <div key={feature} className="flex items-center">
-                            <input
-                              id={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`}
-                              name="features"
-                              type="checkbox"
-                              value={feature}
-                              checked={selectedVehicle ? (selectedVehicle.features || []).includes(feature) : newVehicle.features.includes(feature)}
-                              onChange={handleFeatureChange}
-                              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
-                              {feature}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Image upload section */}
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Images
-                      </label>
-                      <div className="grid grid-cols-4 gap-4 mb-4">
-                        {newVehicle.images.map((image, index) => renderImagePreview(image, index))}
-                      </div>
-                      <div className="mt-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleImageChange}
-                          className="block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-full file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-blue-50 file:text-blue-700
-                            hover:file:bg-blue-100"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="carfax_link" className="block text-sm font-medium text-gray-700">
-                        Carfax Report Link
-                      </label>
-                      <input
-                        type="url"
-                        name="carfax_link"
-                        id="carfax_link"
-                        value={newVehicle.carfax_link}
-                        onChange={handleChange}
-                        placeholder="https://www.carfax.com/vehicle/..."
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      />
-                    </div>
-
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                      <button
-                        type="submit"
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-700 text-base font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                      >
-                        Add Vehicle
-                      </button>
-                      <button
-                        type="button"
-                        onClick={closeAddModal}
-                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+                  <AddVehicleForm
+                    initialData={selectedVehicle}
+                    onSuccess={handleEditComplete}
+                    onCancel={() => setShowEditModal(false)}
+                    isEditing={true}
+                  />
                 </div>
               </div>
             </div>
@@ -1524,436 +670,13 @@ const Inventory: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   onClick={() => setShowDeleteModal(false)}
                 >
                   Cancel
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {showEditModal && selectedVehicle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
-            <button
-              className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
-              onClick={() => {
-                setShowEditModal(false);
-                setSelectedVehicle(null);
-              }}
-              aria-label="Close Edit Vehicle Form"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <h2 className="text-2xl font-bold mb-4">Edit Vehicle</h2>
-            <form onSubmit={handleAddVehicleSubmit} className="space-y-4">
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="make" className="block text-sm font-medium text-gray-700">
-                    Make
-                  </label>
-                  <input
-                    type="text"
-                    name="make"
-                    id="make"
-                    value={selectedVehicle.make}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="model" className="block text-sm font-medium text-gray-700">
-                    Model
-                  </label>
-                  <input
-                    type="text"
-                    name="model"
-                    id="model"
-                    value={selectedVehicle.model}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label htmlFor="year" className="block text-sm font-medium text-gray-700">
-                    Year
-                  </label>
-                  <input
-                    type="number"
-                    name="year"
-                    id="year"
-                    value={selectedVehicle.year}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-                    Price
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    id="price"
-                    value={selectedVehicle.price}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="mileage" className="block text-sm font-medium text-gray-700">
-                    Mileage
-                  </label>
-                  <input
-                    type="number"
-                    name="mileage"
-                    id="mileage"
-                    value={selectedVehicle.mileage}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="vin" className="block text-sm font-medium text-gray-700">
-                  VIN
-                </label>
-                <input
-                  type="text"
-                  name="vin"
-                  id="vin"
-                  value={selectedVehicle.vin}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="exteriorColor" className="block text-sm font-medium text-gray-700">
-                    Exterior Color
-                  </label>
-                  <input
-                    type="text"
-                    name="exteriorColor"
-                    id="exteriorColor"
-                    value={selectedVehicle.exteriorColor}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="interiorColor" className="block text-sm font-medium text-gray-700">
-                    Interior Color
-                  </label>
-                  <input
-                    type="text"
-                    name="interiorColor"
-                    id="interiorColor"
-                    value={selectedVehicle.interiorColor}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="transmission" className="block text-sm font-medium text-gray-700">
-                    Transmission
-                  </label>
-                  <select
-                    name="transmission"
-                    id="transmission"
-                    value={selectedVehicle.transmission}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  >
-                    <option value="">Select Transmission</option>
-                    <option value="automatic">Automatic</option>
-                    <option value="manual">Manual</option>
-                    <option value="cvt">CVT</option>
-                    <option value="semi_automatic">Semi-Automatic</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    id="status"
-                    value={selectedVehicle.status}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  >
-                    <option value="">Select Status</option>
-                    <option value="available">Available</option>
-                    <option value="sold">Sold</option>
-                    <option value="pending">Pending</option>
-                    <option value="maintenance">Maintenance</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="bodyType" className="block text-sm font-medium text-gray-700">
-                    Body Type
-                  </label>
-                  <select
-                    name="bodyType"
-                    id="bodyType"
-                    value={selectedVehicle.bodyType}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  >
-                    <option value="">Select Body Type</option>
-                    <option value="sedan">Sedan</option>
-                    <option value="suv">SUV</option>
-                    <option value="truck">Truck</option>
-                    <option value="coupe">Coupe</option>
-                    <option value="convertible">Convertible</option>
-                    <option value="hatchback">Hatchback</option>
-                    <option value="minivan">Minivan</option>
-                    <option value="van">Van</option>
-                    <option value="wagon">Wagon</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="fuel_type" className="block text-sm font-medium text-gray-700">
-                    Fuel Type
-                  </label>
-                  <select
-                    name="fuel_type"
-                    id="fuel_type"
-                    value={selectedVehicle.fuel_type}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  >
-                    <option value="">Select Fuel Type</option>
-                    <option value="gasoline">Gasoline</option>
-                    <option value="diesel">Diesel</option>
-                    <option value="electric">Electric</option>
-                    <option value="hybrid">Hybrid</option>
-                    <option value="plug_in_hybrid">Plug-in Hybrid</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="condition" className="block text-sm font-medium text-gray-700">
-                    Condition
-                  </label>
-                  <select
-                    name="condition"
-                    id="condition"
-                    value={selectedVehicle.condition}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  >
-                    <option value="">Select Condition</option>
-                    <option value="new">New</option>
-                    <option value="used">Used</option>
-                    <option value="certified_pre_owned">Certified Pre-Owned</option>
-                    <option value="excellent">Excellent</option>
-                    <option value="good">Good</option>
-                    <option value="fair">Fair</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="stock_number" className="block text-sm font-medium text-gray-700">
-                    Stock Number
-                  </label>
-                  <input
-                    type="text"
-                    name="stock_number"
-                    id="stock_number"
-                    value={selectedVehicle.stock_number}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  id="location"
-                  value={selectedVehicle.location}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  id="description"
-                  rows={3}
-                  value={selectedVehicle.description}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              {/* Tags Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tags
-                </label>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History', 'Mark as Featured'].map(tag => (
-                    <div key={tag} className="flex items-center">
-                      <input
-                        id={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`}
-                        name="tags"
-                        type="checkbox"
-                        value={tag}
-                        checked={(selectedVehicle.tags || []).includes(tag)}
-                        onChange={handleTagChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor={`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
-                        {tag}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Features Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Features
-                </label>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {['Bluetooth', 'Navigation', 'Backup Camera', 'Heated Seats', 'Sunroof', 'Leather Interior', 'Alloy Wheels', 'Remote Start', 'Apple CarPlay', 'Android Auto', 'Blind Spot Monitor', 'Lane Departure Warning', 'Adaptive Cruise Control', 'Parking Sensors', 'Premium Audio'].map(feature => (
-                    <div key={feature} className="flex items-center">
-                      <input
-                        id={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`}
-                        name="features"
-                        type="checkbox"
-                        value={feature}
-                        checked={(selectedVehicle.features || []).includes(feature)}
-                        onChange={handleFeatureChange}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`} className="ml-2 block text-sm text-gray-700">
-                        {feature}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Image Upload Section */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Vehicle Images
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                  {selectedVehicle.images.map((image, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={typeof image === 'string' ? image : URL.createObjectURL(image)}
-                        alt={`Vehicle ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Plus className="w-8 h-8 mb-2 text-gray-500" />
-                      <p className="mb-2 text-sm text-gray-500">
-                        <span className="font-semibold">Click to upload</span> or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 10MB)</p>
-                    </div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="carfax_link" className="block text-sm font-medium text-gray-700">
-                  Carfax Report Link
-                </label>
-                <input
-                  type="url"
-                  name="carfax_link"
-                  id="carfax_link"
-                  value={selectedVehicle.carfax_link}
-                  onChange={handleChange}
-                  placeholder="https://www.carfax.com/vehicle/..."
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              {/* Submit and Cancel buttons */}
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedVehicle(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  disabled={loading}
-                >
-                  {loading ? 'Updating...' : 'Update Vehicle'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

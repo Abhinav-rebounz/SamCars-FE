@@ -32,6 +32,7 @@ interface Vehicle {
 interface ErrorResponse {
   message: string;
   error?: string;
+  details?: string;
 }
 
 interface AddVehicleResponse {
@@ -66,7 +67,7 @@ const mapBackendVehicle = (v: any): Vehicle => ({
   description: v.description || '',
   features: Array.isArray(v.features) ? v.features : (v.features ? JSON.parse(v.features) : []),
   tags: Array.isArray(v.tags) ? v.tags : (v.tags ? JSON.parse(v.tags) : []),
-  images: v.image_url ? [v.image_url] : [],
+  images: Array.isArray(v.images) ? v.images : (Array.isArray(v.image_urls) ? v.image_urls : (v.image_url ? [v.image_url] : [])),
   location: v.location || '',
   is_featured: v.is_featured || false,
   stock_number: v.stock_number || '',
@@ -113,13 +114,39 @@ export const updateVehicle = async (vehicleData: FormData): Promise<AddVehicleRe
       }
     });
     
+    console.log('Backend update response:', response.data);
+    
     if (response.data.status === 'success') {
-      return { success: true, vehicle: mapBackendVehicle(response.data.data) };
+      // For update, we don't need to return the vehicle data since it's just a success confirmation
+      return { success: true };
     } else {
       return { success: false, error: response.data.message || 'Failed to update vehicle' };
     }
   } catch (error: unknown) {
     const axiosError = error as AxiosError<ErrorResponse>;
+    console.error('Update vehicle error:', axiosError.response?.data);
+    
+    // Handle specific constraint violations
+    if (axiosError.response?.data?.details) {
+      const details = axiosError.response.data.details;
+      if (details.includes('vehicles_stock_number_key')) {
+        return {
+          success: false,
+          error: 'Stock number already exists. Please use a unique stock number.'
+        };
+      } else if (details.includes('vehicles_vin_key')) {
+        return {
+          success: false,
+          error: 'VIN number already exists. Please use a unique VIN.'
+        };
+      } else if (details.includes('unique constraint')) {
+        return {
+          success: false,
+          error: 'A field with this value already exists. Please use a unique value.'
+        };
+      }
+    }
+    
     return {
       success: false,
       error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to update vehicle'
@@ -170,6 +197,37 @@ export const deleteVehicle = async (vehicleId: string): Promise<{ success: boole
     return {
       success: false,
       error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to delete vehicle'
+    };
+  }
+};
+
+export const getVehicleById = async (vehicleId: string): Promise<{ success: boolean; data?: Vehicle; error?: string }> => {
+  try {
+    const response = await api.get(API_ENDPOINTS.VEHICLE_DETAILS(vehicleId));
+    console.log('Raw backend response for vehicle details:', response.data);
+    
+    if (response.data.status === 'success' && response.data.data) {
+      console.log('Raw vehicle data from backend:', response.data.data);
+      const mappedVehicle = mapBackendVehicle(response.data.data);
+      console.log('Mapped vehicle data:', mappedVehicle);
+      console.log('Mapped stock_number:', mappedVehicle.stock_number);
+      console.log('Mapped location:', mappedVehicle.location);
+      
+      return { 
+        success: true, 
+        data: mappedVehicle
+      };
+    } else {
+      return {
+        success: false,
+        error: response.data.message || 'Failed to fetch vehicle'
+      };
+    }
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    return {
+      success: false,
+      error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to fetch vehicle'
     };
   }
 };
