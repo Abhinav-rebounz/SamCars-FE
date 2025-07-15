@@ -30,6 +30,7 @@ const Auctions: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
+  const [imageIndex, setImageIndex] = useState(0);
   
   // Fetch auction vehicles from backend
   const fetchAuctions = async () => {
@@ -178,6 +179,10 @@ const Auctions: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    setImageIndex(0);
+  }, [selectedAuction]);
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
       <div className="sm:flex sm:items-center sm:justify-between mb-6">
@@ -266,14 +271,54 @@ const Auctions: React.FC = () => {
             </button>
             <h2 className="text-2xl font-bold mb-6 text-center text-gray-900">Auction Purchase Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Images */}
+              {/* Images - Slideshow */}
               <div>
                 <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Images</h3>
                 {selectedAuction.images && selectedAuction.images.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {selectedAuction.images.map((img: string, i: number) => (
-                      <img key={i} src={img} alt={`Auction Image ${i + 1}`} className="w-full h-32 object-cover rounded border" />
-                    ))}
+                  <div className="relative w-full h-48 flex items-center justify-center">
+                    <img
+                      src={selectedAuction.images[imageIndex]}
+                      alt={`Auction Image ${imageIndex + 1}`}
+                      className="w-full h-48 object-cover rounded border"
+                    />
+                    {/* Download Button */}
+                    <a
+                      href={selectedAuction.images[imageIndex]}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 text-blue-700 p-2 rounded-full shadow z-20"
+                      title="Download Image"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+                      </svg>
+                    </a>
+                    {/* Left Arrow */}
+                    {selectedAuction.images.length > 1 && (
+                      <button
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 z-10"
+                        onClick={() => setImageIndex((prev) => prev === 0 ? selectedAuction.images.length - 1 : prev - 1)}
+                        aria-label="Previous Image"
+                      >
+                        &#8592;
+                      </button>
+                    )}
+                    {/* Right Arrow */}
+                    {selectedAuction.images.length > 1 && (
+                      <button
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 z-10"
+                        onClick={() => setImageIndex((prev) => prev === selectedAuction.images.length - 1 ? 0 : prev + 1)}
+                        aria-label="Next Image"
+                      >
+                        &#8594;
+                      </button>
+                    )}
+                    {/* Image Counter */}
+                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                      {imageIndex + 1} / {selectedAuction.images.length}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-gray-400 text-sm">No images available</div>
