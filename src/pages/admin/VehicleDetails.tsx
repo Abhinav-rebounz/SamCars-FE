@@ -21,7 +21,7 @@ const VehicleDetails: React.FC = () => {
     try {
       setLoading(true);
       const response = await getVehicleById(id);
-      console.log('Vehicle details response:', response);
+      console.log('Fetched vehicle after update:', response.data); // Log the fetched data
       if (response.success && response.data) {
         console.log('Vehicle data:', response.data);
         console.log('Vehicle stock_number:', response.data.stock_number);
@@ -54,11 +54,9 @@ const VehicleDetails: React.FC = () => {
   const handleEditComplete = () => {
     setShowEditModal(false);
     setSuccessMessage('Vehicle updated successfully!');
-    // Refresh vehicle data
-    if (id) {
-      fetchVehicle();
-    }
-    // Clear success message after 3 seconds
+    setTimeout(() => {
+      if (id) fetchVehicle();
+    }, 300); // 300ms delay before refetching
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 

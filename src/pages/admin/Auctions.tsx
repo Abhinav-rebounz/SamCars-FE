@@ -28,6 +28,7 @@ const Auctions: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
   
   // Fetch auction vehicles from backend
@@ -158,6 +159,17 @@ const Auctions: React.FC = () => {
     fetchAuctions(); // Refresh list after add/edit
   };
 
+  // Handler for successful add/edit
+  const handleAuctionSuccess = (msg: string) => {
+    setShowAddModal(false);
+    setShowEditModal(false);
+    setSelectedAuction(null);
+    setError(null);
+    setSuccessMessage(msg);
+    fetchAuctions();
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
   // Handler for save button in modal (trigger form submit via ref)
   const formRef = React.useRef<HTMLFormElement>(null);
   const handleSave = () => {
@@ -181,6 +193,19 @@ const Auctions: React.FC = () => {
         </div>
       </div>
 
+      {/* Success Message */}
+      {successMessage && !error && (
+        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded flex justify-between items-center">
+          <span>{successMessage}</span>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-green-600 hover:text-green-800 font-bold text-xl"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Modal for Add Auction Purchase */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
@@ -197,7 +222,7 @@ const Auctions: React.FC = () => {
             <h2 className="text-xl font-semibold mb-6 text-center">Add Auction Purchase</h2>
             <AuctionPurchaseForm 
               formRef={formRef}
-              onSuccess={handleCancel}
+              onSuccess={() => handleAuctionSuccess('Auction purchase added successfully!')}
             />
           </div>
         </div>
@@ -219,9 +244,112 @@ const Auctions: React.FC = () => {
             <h2 className="text-xl font-semibold mb-6 text-center">Edit Auction Purchase</h2>
             <AuctionPurchaseForm 
               formRef={formRef}
-              onSuccess={handleCancel}
+              onSuccess={() => handleAuctionSuccess('Auction purchase updated successfully!')}
               initialData={selectedAuction}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Auction Details */}
+      {showDetailModal && selectedAuction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl mx-auto p-6 relative max-h-[90vh] overflow-y-auto">
+            <button
+              className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+              onClick={() => { setShowDetailModal(false); setSelectedAuction(null); }}
+              aria-label="Close Auction Details"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h2 className="text-2xl font-bold mb-6 text-center text-gray-900">Auction Purchase Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Images */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Images</h3>
+                {selectedAuction.images && selectedAuction.images.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedAuction.images.map((img: string, i: number) => (
+                      <img key={i} src={img} alt={`Auction Image ${i + 1}`} className="w-full h-32 object-cover rounded border" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-gray-400 text-sm">No images available</div>
+                )}
+              </div>
+              {/* Info */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Details</h3>
+                <dl className="divide-y divide-gray-200">
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Make</dt>
+                    <dd className="text-gray-900">{selectedAuction.make}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Model</dt>
+                    <dd className="text-gray-900">{selectedAuction.model}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Year</dt>
+                    <dd className="text-gray-900">{selectedAuction.year}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">VIN</dt>
+                    <dd className="text-gray-900">{selectedAuction.vin}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Mileage</dt>
+                    <dd className="text-gray-900">{selectedAuction.mileage?.toLocaleString?.() ?? '-'}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Purchase Price</dt>
+                    <dd className="text-gray-900">${selectedAuction.purchase_price?.toFixed(2) || '-'}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Purchase Date</dt>
+                    <dd className="text-gray-900">{selectedAuction.purchase_date ? new Date(selectedAuction.purchase_date).toLocaleDateString() : '-'}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">List Price</dt>
+                    <dd className="text-gray-900">${selectedAuction.list_price?.toFixed(2) || '-'}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Sold Price</dt>
+                    <dd className="text-gray-900">${selectedAuction.sold_price?.toFixed(2) || '-'}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between items-center">
+                    <dt className="font-medium text-gray-500">Status</dt>
+                    <dd className="text-gray-900 capitalize">{selectedAuction.status}</dd>
+                  </div>
+                  {/* Add more fields as needed */}
+                </dl>
+              </div>
+            </div>
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 mt-8">
+              <button
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={() => {
+                  setShowDetailModal(false);
+                  setShowEditModal(true);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2 rounded shadow focus:outline-none focus:ring-2 focus:ring-red-500"
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to delete this auction purchase? This action cannot be undone.')) {
+                    await handleDeleteAuction(selectedAuction.id);
+                    setShowDetailModal(false);
+                  }
+                }}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -374,7 +502,7 @@ const Auctions: React.FC = () => {
             )}
             {!loading && !error && sortedAuctions.length > 0 && (
               sortedAuctions.map((auction, idx) => (
-                <tr key={auction.id || idx} className="hover:bg-gray-50">
+                <tr key={auction.id || idx} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setSelectedAuction(auction); setShowDetailModal(true); }}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex-shrink-0 h-10 w-10">
                       {auction.images && auction.images.length > 0 && !imageErrors[auction.id] ? (

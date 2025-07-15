@@ -184,6 +184,7 @@ const Inventory: React.FC = () => {
 
   const handleAddComplete = () => {
     setShowAddModal(false);
+    setError(null); // Clear any previous error
     setSuccessMessage('Vehicle added successfully!');
     fetchVehicles(); // Refresh the list after add
     // Clear success message after 3 seconds
@@ -204,7 +205,7 @@ const Inventory: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Success Message */}
-      {successMessage && (
+      {successMessage && !error && (
         <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded flex justify-between items-center">
           <span>{successMessage}</span>
           <button
@@ -372,6 +373,9 @@ const Inventory: React.FC = () => {
                     Location
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stock Number
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -429,6 +433,9 @@ const Inventory: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {vehicle.location || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {vehicle.stock_number || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">

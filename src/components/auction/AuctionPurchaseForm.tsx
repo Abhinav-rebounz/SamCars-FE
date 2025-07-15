@@ -143,7 +143,8 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
 
       if (response.success) {
         console.log(`Auction purchase ${initialData ? 'updated' : 'added'} successfully:`, response);
-        setSuccess(true);
+        setError(''); // Clear any previous error before closing
+        if (onSuccess) onSuccess(); // Only call onSuccess, let parent handle the message and closing
         
         // Reset form only if not editing
         if (!initialData) {
@@ -173,9 +174,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
           setImages([]);
         }
         
-        if (onSuccess) {
-          onSuccess();
-        }
       } else {
         throw new Error(response.error || `Failed to ${initialData ? 'update' : 'add'} auction purchase`);
       }
@@ -189,9 +187,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-      {success && <div className="text-green-500 p-2 bg-green-50 rounded">
-        Auction purchase {initialData ? 'updated' : 'added'} successfully!
-      </div>}
       {error && (
         <div className="text-red-500 p-2 bg-red-50 rounded border border-red-200">
           <div className="font-medium">Please fix the following error:</div>

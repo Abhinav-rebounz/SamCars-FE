@@ -288,8 +288,8 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         const response = await addVehicle(formDataToSend);
         console.log('Add response:', response);
         if (response.success) {
-          setSuccess('Vehicle added successfully!');
-          onSuccess();
+          setError(null); // Clear any previous error before closing
+          onSuccess(); // Only call onSuccess, let parent handle the message and closing
         } else {
           setError(response.error || 'Failed to add vehicle');
         }
@@ -311,18 +311,6 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
             type="button"
             onClick={() => setError(null)}
             className="text-red-600 hover:text-red-800"
-          >
-            ×
-          </button>
-        </div>
-      )}
-      {success && (
-        <div className="text-green-500 p-2 bg-green-50 rounded flex justify-between items-center">
-          <span>{success}</span>
-          <button
-            type="button"
-            onClick={() => setSuccess(null)}
-            className="text-green-600 hover:text-green-800"
           >
             ×
           </button>

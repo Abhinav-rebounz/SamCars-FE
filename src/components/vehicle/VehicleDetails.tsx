@@ -69,13 +69,13 @@ const VehicleDetails: React.FC = () => {
                 <>
                   <button
                     onClick={previousImage}
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75"
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 z-10"
                   >
                     ←
                   </button>
                   <button
                     onClick={nextImage}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 z-10"
                   >
                     →
                   </button>
@@ -111,7 +111,7 @@ const VehicleDetails: React.FC = () => {
               </div>
               <div>
                 <span className="font-medium">Mileage:</span>
-                <span className="ml-2">{vehicle.mileage.toLocaleString()} miles</span>
+                <span className="ml-2">{vehicle.mileage !== undefined ? `${vehicle.mileage.toLocaleString()} miles` : 'N/A'}</span>
               </div>
               <div>
                 <span className="font-medium">Status:</span>
