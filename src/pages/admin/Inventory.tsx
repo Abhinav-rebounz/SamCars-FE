@@ -107,7 +107,7 @@ const Inventory: React.FC = () => {
       year: 'year',
       price: 'price',
       mileage: 'mileage',
-      created_at: 'created_at',
+      created_at: 'date_added',  // Map created_at to date_added
     };
     const apiField = fieldMap[field] || field;
     if (apiField === sortField) {
@@ -315,163 +315,74 @@ const Inventory: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('make')}
-                  >
-                    <div className="flex items-center">
-                      Vehicle
-                      {sortField === 'make' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('year')}
-                  >
-                    <div className="flex items-center">
-                      Year
-                      {sortField === 'year' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('price')}
-                  >
-                    <div className="flex items-center">
-                      Price
-                      {sortField === 'price' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('mileage')}
-                  >
-                    <div className="flex items-center">
-                      Mileage
-                      {sortField === 'mileage' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </div>
-                  </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    VIN
+                    Vehicle
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('created_at')}>
+                    Date Added
+                    {sortField === 'date_added' && (  // Update the condition to check for date_added
+                      sortDirection === 'asc' ? <ChevronUp className="inline h-4 w-4 ml-1" /> : <ChevronDown className="inline h-4 w-4 ml-1" />
+                    )}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Stock Number
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('price')}>
+                    Price
+                    {sortField === 'price' && (
+                      sortDirection === 'asc' ? <ChevronUp className="inline h-4 w-4 ml-1" /> : <ChevronDown className="inline h-4 w-4 ml-1" />
+                    )}
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedVehicles.map((vehicle) => (
-                  <tr key={vehicle.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleVehicleClick(vehicle.id)}>
+                  <tr 
+                    key={vehicle.id}
+                    onClick={() => handleVehicleClick(vehicle.id)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          {vehicle.images && vehicle.images.length > 0 && !imageErrors[vehicle.id.toString()] ? (
+                        <div className="h-10 w-10 flex-shrink-0">
+                          {!imageErrors[vehicle.id] && vehicle.images && vehicle.images[0] ? (
                             <img
-                              className="h-10 w-10 rounded-lg object-cover"
+                              className="h-10 w-10 rounded-full object-cover"
                               src={vehicle.images[0]}
-                              alt={`${vehicle.make} ${vehicle.model}`}
-                              onError={() => handleImageError(vehicle.id.toString())}
+                              alt=""
+                              onError={() => handleImageError(vehicle.id)}
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
-                              <ImageIcon className="h-5 w-5 text-gray-400" />
+                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                              <ImageIcon className="h-6 w-6 text-gray-400" />
                             </div>
                           )}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {vehicle.make} {vehicle.model}
+                            {vehicle.year} {vehicle.make} {vehicle.model}
                           </div>
                           <div className="text-sm text-gray-500">
-                            Engine: {vehicle.engine || 'N/A'}
+                            VIN: {vehicle.vin}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {vehicle.year}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${vehicle.price.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {vehicle.mileage ? vehicle.mileage.toLocaleString() : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {vehicle.vin || 'N/A'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(vehicle.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         vehicle.status === 'available' ? 'bg-green-100 text-green-800' :
                         vehicle.status === 'sold' ? 'bg-red-100 text-red-800' :
                         vehicle.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {vehicle.status}
+                        {vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {vehicle.location || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {vehicle.stock_number || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        {vehicle.carfax_link && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(vehicle.carfax_link, '_blank');
-                            }}
-                            className="text-orange-600 hover:text-orange-900"
-                            title="View Carfax Report"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(vehicle);
-                          }}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Edit Vehicle"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(vehicle.id);
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete Vehicle"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${vehicle.price.toLocaleString()}
                     </td>
                   </tr>
                 ))}

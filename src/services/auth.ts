@@ -1,54 +1,75 @@
 import { api, API_ENDPOINTS } from '../config/api';
 import { AxiosError } from 'axios';
 
-interface LoginResponse {
-  success: boolean;
-  token: string;
-  user: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    role: string;
+interface AuthResponse {
+  status: 'success' | 'error';
+  data?: {
+    user: {
+      userId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: 'customer' | 'admin';
+    };
+    accessToken: string;
+    refreshToken: string;
   };
-  message: string;
+  message?: string;
+}
+
+interface ProfileResponse {
+  status: 'success' | 'error';
+  data?: {
+    user: {
+      userId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      phone?: string;
+      role: 'customer' | 'admin';
+    };
+  };
+  message?: string;
 }
 
 interface ErrorResponse {
+  status: 'error';
   message: string;
-  error?: string;
 }
 
 export const login = async (email: string, password: string) => {
   try {
-    const formData = new FormData();
-    formData.append('email', email);
-    formData.append('password', password);
-
-    const response = await api.post<LoginResponse>(API_ENDPOINTS.LOGIN, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.LOGIN, {
+      email,
+      password
     });
 
-    const { token, user } = response.data;
+    if (response.data.status === 'success' && response.data.data) {
+      const { accessToken, refreshToken, user } = response.data.data;
+      
+      // Store tokens and user data
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('user', JSON.stringify({
+        ...user,
+        name: `${user.firstName} ${user.lastName}`
+      }));
+      
+      return { 
+        success: true, 
+        user: {
+          ...user,
+          name: `${user.firstName} ${user.lastName}`
+        }
+      };
+    }
     
-    // Create user object with name field for compatibility
-    const userWithName = {
-      ...user,
-      name: `${user.first_name} ${user.last_name}`,
-      role: user.role as 'customer' | 'admin'
-    };
-
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userWithName));
-    
-    return { success: true, user: userWithName, token };
+    throw new Error(response.data.message || 'Login failed');
   } catch (error) {
     const axiosError = error as AxiosError<ErrorResponse>;
     return {
       success: false,
-      error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Login failed'
+      error: axiosError.response?.data?.message || 'Login failed'
     };
   }
 };
@@ -58,140 +79,127 @@ export const register = async (
   lastName: string,
   email: string,
   password: string,
-  role: string = 'customer'
+  phone?: string
 ) => {
   try {
-    const formData = new FormData();
-    formData.append('first_name', firstName);
-    formData.append('last_name', lastName);
-    formData.append('email', email);
-    formData.append('password', password);
-    formData.append('role', role);
-
-    const response = await api.post<LoginResponse>(API_ENDPOINTS.REGISTER, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.REGISTER, {
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+      role: 'customer'
     });
 
-    const { token, user } = response.data;
+    if (response.data.status === 'success' && response.data.data) {
+      const { accessToken, refreshToken, user } = response.data.data;
+      
+      // Store tokens and user data
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('user', JSON.stringify({
+        ...user,
+        name: `${user.firstName} ${user.lastName}`
+      }));
+      
+      return { 
+        success: true, 
+        user: {
+          ...user,
+          name: `${user.firstName} ${user.lastName}`
+        }
+      };
+    }
     
-    // Create user object with name field for compatibility
-    const userWithName = {
-      ...user,
-      name: `${user.first_name} ${user.last_name}`,
-      role: user.role as 'customer' | 'admin'
-    };
-
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userWithName));
-    
-    return { success: true, user: userWithName, token };
+    throw new Error(response.data.message || 'Registration failed');
   } catch (error) {
     const axiosError = error as AxiosError<ErrorResponse>;
     return {
       success: false,
-      error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Registration failed'
-    };
-  }
-};
-
-export const fetchUserById = async (userId: string) => {
-  try {
-    const response = await api.get(API_ENDPOINTS.USER_BY_ID(userId));
-    return { success: true, user: response.data };
-  } catch (error: unknown) {
-    const axiosError = error as AxiosError<ErrorResponse>;
-    return { 
-      success: false, 
-      error: axiosError.response?.data?.message || 'Failed to fetch user' 
+      error: axiosError.response?.data?.message || 'Registration failed'
     };
   }
 };
 
 export const updateProfile = async (profileData: {
-  first_name: string;
-  last_name: string;
-  email: string;
+  firstName: string;
+  lastName: string;
   phone?: string;
-  current_password?: string;
-  new_password?: string;
 }) => {
   try {
-    const formData = new FormData();
-    formData.append('first_name', profileData.first_name);
-    formData.append('last_name', profileData.last_name);
-    formData.append('email', profileData.email);
-    
-    if (profileData.phone) {
-      formData.append('phone', profileData.phone);
-    }
-    
-    if (profileData.current_password) {
-      formData.append('current_password', profileData.current_password);
-    }
-    
-    if (profileData.new_password) {
-      formData.append('new_password', profileData.new_password);
-    }
+    const response = await api.put<ProfileResponse>(API_ENDPOINTS.UPDATE_PROFILE, profileData);
 
-    const response = await api.put(API_ENDPOINTS.UPDATE_PROFILE, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-
-    if (response.data.success) {
-      // Update local storage with new user data
+    if (response.data.status === 'success' && response.data.data) {
+      const { user } = response.data.data;
+      
+      // Update stored user data
       const updatedUser = {
-        ...response.data.user,
-        name: `${response.data.user.first_name} ${response.data.user.last_name}`,
-        role: response.data.user.role as 'customer' | 'admin'
+        ...user,
+        name: `${user.firstName} ${user.lastName}`
       };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
       return { 
         success: true, 
-        user: updatedUser, 
-        message: response.data.message 
-      };
-    } else {
-      return { 
-        success: false, 
-        error: response.data.message || 'Failed to update profile' 
+        user: updatedUser
       };
     }
-  } catch (error: unknown) {
+    
+    throw new Error(response.data.message || 'Failed to update profile');
+  } catch (error) {
     const axiosError = error as AxiosError<ErrorResponse>;
     return {
       success: false,
-      error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to update profile'
+      error: axiosError.response?.data?.message || 'Failed to update profile'
     };
   }
 };
 
-export const getAdminDashboard = async () => {
+export const logout = async () => {
   try {
-    const response = await api.get(API_ENDPOINTS.AUCTION_DASHBOARD);
-    return { success: true, data: response.data };
-  } catch (error: unknown) {
-    const axiosError = error as AxiosError<ErrorResponse>;
-    return { 
-      success: false, 
-      error: axiosError.response?.data?.message || 'Failed to fetch dashboard data' 
-    };
+    await api.post(API_ENDPOINTS.LOGOUT);
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
   }
 };
 
-export const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+export const refreshToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.REFRESH_TOKEN, {
+      refreshToken
+    });
+
+    if (response.data.status === 'success' && response.data.data) {
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', newRefreshToken);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return false;
+  }
 };
 
 export const requestPasswordReset = async (email: string) => {
   try {
-    const response = await api.post('/auth/request-password-reset', { email });
-    return { success: true, message: response.data.message };
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.REQUEST_PASSWORD_RESET, { 
+      email 
+    });
+    return { 
+      success: response.data.status === 'success', 
+      message: response.data.message 
+    };
   } catch (error) {
     const axiosError = error as AxiosError<ErrorResponse>;
     return {
@@ -203,8 +211,14 @@ export const requestPasswordReset = async (email: string) => {
 
 export const resetPassword = async (token: string, newPassword: string) => {
   try {
-    const response = await api.post('/auth/reset-password', { token, newPassword });
-    return { success: true, message: response.data.message };
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.RESET_PASSWORD, { 
+      token, 
+      newPassword 
+    });
+    return { 
+      success: response.data.status === 'success', 
+      message: response.data.message 
+    };
   } catch (error) {
     const axiosError = error as AxiosError<ErrorResponse>;
     return {

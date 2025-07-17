@@ -1,194 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, SlidersHorizontal } from 'lucide-react';
+import { Filter, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import VehicleCard from '../../components/VehicleCard';
-import axios from 'axios';
-import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
-import { getInventory } from '../../services/inventory';
+import { getInventory, type InventoryFilters, type PaginationInfo, type FilterStats } from '../../services/inventory';
 import { Vehicle as VehicleType } from '../../types/vehicle';
 
-interface Vehicle {
-  id: number;
-  make: string;
-  model: string;
-  year: number;
-  price: number;
-  mileage: number;
-  vin: string;
-  exteriorColor: string;
-  interiorColor: string;
-  transmission: string;
-  bodyType: string;
-  description: string;
-  tags: string[];
-  images: string[];
-  fuel_type?: string;
-  engine?: string;
-  condition?: string;
-  stock_number?: string;
-  location?: string;
-  is_featured?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  // Add any other properties that might be returned from the backend
+interface Vehicle extends VehicleType {
+  // Add any additional properties that might be returned from the backend
 }
 
 const InventoryPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    make: '',
-    model: '',
-    minYear: '',
-    maxYear: '',
-    minPrice: '',
-    maxPrice: '',
-    minMileage: '',
-    maxMileage: '',
-    bodyType: '',
-    transmission: '',
-    tags: [] as string[],
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
+  
+  const [filters, setFilters] = useState<InventoryFilters>({
+    category: 'all',
+    limit: 9,
+    page: 1,
+    search: '',
+    sort_by: 'date_added',
+    sort_order: 'desc',
+    status: 'available'
   });
-  const [sortBy, setSortBy] = useState('newest');
 
   // Fetch vehicles from API
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
         setLoading(true);
-        const response = await getInventory();
-        const apiVehicles = response.success && response.vehicles ? response.vehicles : [];
-        const normalizedVehicles = apiVehicles.map((v: VehicleType) => ({
-          ...v,
-          images: v.images ?? [],
-          tags: v.tags ?? [],
-        }));
-        setVehicles(normalizedVehicles);
-        setLoading(false);
+        console.log('Fetching vehicles with filters:', filters);
+        const response = await getInventory(filters);
+        console.log('Got response:', response);
+        if (response.success) {
+          setVehicles(response.vehicles || []);
+          setPagination(response.pagination || null);
+          setFilterStats(response.filter_stats || null);
+          setError(null);
+        } else {
+          setError(response.error || 'Failed to load vehicles');
+        }
       } catch (err: any) {
         console.error('Error fetching vehicles:', err);
         setError('Failed to load vehicles. Please try again later.');
+      } finally {
         setLoading(false);
       }
     };
 
     fetchVehicles();
-  }, []);
-
-  // Get unique values for filter dropdowns based on fetched vehicles
-  const getDynamicUniqueValues = (key: keyof Vehicle) => {
-    // Ensure vehicles is an array and not empty before attempting to map
-    if (!Array.isArray(vehicles) || vehicles.length === 0) {
-      return [];
-    }
-    
-    // Ensure the key exists on the Vehicle type and filter out null/undefined
-    return Array.from(new Set(vehicles.map(vehicle => vehicle[key]))).filter(Boolean).map(String);
-  };
-
-  const makes = getDynamicUniqueValues('make');
-  const bodyTypes = getDynamicUniqueValues('bodyType');
-  const transmissions = getDynamicUniqueValues('transmission');
-
-  // Helper function for filtering
-  const applyFilters = (vehiclesToFilter: Vehicle[]) => {
-    return vehiclesToFilter.filter(vehicle => {
-      // Make filter
-      if (filters.make && vehicle.make !== filters.make) return false;
-      // Model filter
-      if (filters.model && !vehicle.model.toLowerCase().includes(filters.model.toLowerCase())) return false;
-      // Year range
-      if (filters.minYear && vehicle.year < parseInt(filters.minYear)) return false;
-      if (filters.maxYear && vehicle.year > parseInt(filters.maxYear)) return false;
-      // Price range
-      if (filters.minPrice && vehicle.price < parseInt(filters.minPrice)) return false;
-      if (filters.maxPrice && vehicle.price > parseInt(filters.maxPrice)) return false;
-      // Mileage range
-      if (filters.minMileage && vehicle.mileage < parseInt(filters.minMileage)) return false;
-      if (filters.maxMileage && vehicle.mileage > parseInt(filters.maxMileage)) return false;
-      // Body type
-      if (filters.bodyType && vehicle.bodyType !== filters.bodyType) return false;
-      // Transmission
-      if (filters.transmission && vehicle.transmission !== filters.transmission) return false;
-      // Tags
-      if (filters.tags.length > 0) {
-        const vehicleTagsLower = (vehicle.tags || []).map(tag => tag.toLowerCase());
-        if (!filters.tags.every(tag => vehicleTagsLower.includes(tag.toLowerCase()))) return false;
-      }
-      return true;
-    });
-  };
-
-  // Helper function for sorting
-  const applySorting = (vehiclesToSort: Vehicle[]) => {
-    const sorted = [...vehiclesToSort];
-    switch (sortBy) {
-      case 'newest':
-        return sorted.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
-      case 'price-asc':
-        return sorted.sort((a, b) => a.price - b.price);
-      case 'price-desc':
-        return sorted.sort((a, b) => b.price - a.price);
-      case 'mileage-asc':
-        return sorted.sort((a, b) => a.mileage - b.mileage);
-      case 'mileage-desc':
-        return sorted.sort((a, b) => b.mileage - a.mileage);
-      case 'year-desc':
-        return sorted.sort((a, b) => b.year - a.year);
-      case 'year-asc':
-        return sorted.sort((a, b) => a.year - b.year);
-      default:
-        return sorted;
-    }
-  };
-
-  // Apply filters and sorting whenever filters or vehicles change
-  useEffect(() => {
-    let result = applyFilters(vehicles);
-    result = applySorting(result);
-    setFilteredVehicles(result);
-  }, [filters, sortBy, vehicles]);
+  }, [filters]);
 
   // Handle filter changes
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters(prev => ({ ...prev, [name]: value, page: 1 })); // Reset to page 1 when filters change
   };
 
-  // Handle tag filter changes
-  const handleTagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
-    setFilters(prev => {
-      if (checked) {
-        return { ...prev, tags: [...prev.tags, value] };
-      } else {
-        return { ...prev, tags: prev.tags.filter(tag => tag !== value) };
-      }
-    });
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && (!pagination || newPage <= pagination.total_pages)) {
+      setFilters(prev => ({ ...prev, page: newPage }));
+    }
   };
 
   // Reset filters
   const resetFilters = () => {
     setFilters({
-      make: '',
-      model: '',
-      minYear: '',
-      maxYear: '',
-      minPrice: '',
-      maxPrice: '',
-      minMileage: '',
-      maxMileage: '',
-      bodyType: '',
-      transmission: '',
-      tags: [],
+      category: 'all',
+      limit: 9,
+      page: 1,
+      search: '',
+      sort_by: 'date_added',
+      sort_order: 'desc',
+      status: 'available'
     });
-    setSortBy('newest');
   };
 
-  // 1. Import getInventory from services/inventory
-  // 2. Use getInventory in useEffect for fetching vehicles
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -204,15 +94,6 @@ const InventoryPage: React.FC = () => {
             </div>
           ))}
         </div>
-      </div>
-    );
-  }
-
-  // 3. Add skeleton loader for loading state
-  if (!loading && !error && filteredVehicles.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-500">No vehicles found.</p>
       </div>
     );
   }
@@ -247,211 +128,82 @@ const InventoryPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {/* Make */}
+              {/* Category Filter */}
               <div>
-                <label className="form-label">Make</label>
+                <label className="form-label">Category</label>
                 <select 
-                  name="make" 
-                  value={filters.make}
+                  name="category" 
+                  value={filters.category}
                   onChange={handleFilterChange}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 >
-                  <option value="">All Makes</option>
-                  {makes.map(make => (
-                    <option key={make} value={make}>{make}</option>
-                  ))}
+                  <option value="all">All Categories</option>
+                  <option value="sedan">Sedan ({filterStats?.categories.sedan || 0})</option>
+                  <option value="suv">SUV ({filterStats?.categories.suv || 0})</option>
+                  <option value="truck">Truck ({filterStats?.categories.truck || 0})</option>
+                  <option value="electric">Electric ({filterStats?.categories.electric || 0})</option>
+                  <option value="luxury">Luxury ({filterStats?.categories.luxury || 0})</option>
+                  <option value="compact">Compact ({filterStats?.categories.compact || 0})</option>
                 </select>
               </div>
 
-              {/* Model */}
+              {/* Search */}
               <div>
-                <label className="form-label">Model</label>
+                <label className="form-label">Search</label>
                 <input
                   type="text"
-                  name="model"
-                  placeholder="e.g., Camry"
-                  value={filters.model}
+                  name="search"
+                  placeholder="Search by make, model, or year"
+                  value={filters.search}
                   onChange={handleFilterChange}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
               </div>
 
-              {/* Price Range */}
+              {/* Sort By */}
               <div>
-                <label className="form-label">Price Range</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    name="minPrice"
-                    placeholder="Min"
-                    value={filters.minPrice}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                  <input
-                    type="number"
-                    name="maxPrice"
-                    placeholder="Max"
-                    value={filters.maxPrice}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                </div>
-              </div>
-
-              {/* Year Range */}
-              <div>
-                <label className="form-label">Year Range</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    name="minYear"
-                    placeholder="Min"
-                    value={filters.minYear}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                  <input
-                    type="number"
-                    name="maxYear"
-                    placeholder="Max"
-                    value={filters.maxYear}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                </div>
-              </div>
-
-              {/* Mileage Range */}
-              <div>
-                <label className="form-label">Mileage Range</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    name="minMileage"
-                    placeholder="Min"
-                    value={filters.minMileage}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                  <input
-                    type="number"
-                    name="maxMileage"
-                    placeholder="Max"
-                    value={filters.maxMileage}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                </div>
-              </div>
-
-              {/* Body Type */}
-              <div>
-                <label className="form-label">Body Type</label>
-                <select 
-                  name="bodyType" 
-                  value={filters.bodyType}
+                <label className="form-label">Sort By</label>
+                <select
+                  name="sort_by"
+                  value={filters.sort_by}
                   onChange={handleFilterChange}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 >
-                  <option value="">All Types</option>
-                  {bodyTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
+                  <option value="date_added">Newest Arrivals</option>
+                  <option value="price">Price</option>
+                  <option value="year">Year</option>
+                  <option value="mileage">Mileage</option>
+                  <option value="make">Make</option>
                 </select>
               </div>
 
-              {/* Transmission */}
+              {/* Sort Order */}
               <div>
-                <label className="form-label">Transmission</label>
-                <select 
-                  name="transmission" 
-                  value={filters.transmission}
+                <label className="form-label">Sort Order</label>
+                <select
+                  name="sort_order"
+                  value={filters.sort_order}
                   onChange={handleFilterChange}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 >
-                  <option value="">All Transmissions</option>
-                  {transmissions.map(transmission => (
-                    <option key={transmission} value={transmission}>{transmission}</option>
-                  ))}
+                  <option value="desc">High to Low</option>
+                  <option value="asc">Low to High</option>
                 </select>
               </div>
 
-              {/* Tags */}
+              {/* Status */}
               <div>
-                <label className="form-label">Tags</label>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="tag-new"
-                      name="tags"
-                      value="New Arrivals"
-                      checked={filters.tags.includes('New Arrivals')}
-                      onChange={handleTagChange}
-                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <label htmlFor="tag-new" className="ml-2 text-sm text-gray-700">
-                      New Arrivals
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="tag-featured"
-                      name="tags"
-                      value="Featured Vehicles"
-                      checked={filters.tags.includes('Featured Vehicles')}
-                      onChange={handleTagChange}
-                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <label htmlFor="tag-featured" className="ml-2 text-sm text-gray-700">
-                      Featured Vehicles
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="tag-sale"
-                      name="tags"
-                      value="On Sale"
-                      checked={filters.tags.includes('On Sale')}
-                      onChange={handleTagChange}
-                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <label htmlFor="tag-sale" className="ml-2 text-sm text-gray-700">
-                      On Sale
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="tag-low-mileage"
-                      name="tags"
-                      value="Low Mileage"
-                      checked={filters.tags.includes('Low Mileage')}
-                      onChange={handleTagChange}
-                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <label htmlFor="tag-low-mileage" className="ml-2 text-sm text-gray-700">
-                      Low Mileage
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="tag-certified"
-                      name="tags"
-                      value="Certified Pre-Owned"
-                      checked={filters.tags.includes('Certified Pre-Owned')}
-                      onChange={handleTagChange}
-                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <label htmlFor="tag-certified" className="ml-2 text-sm text-gray-700">
-                      Certified Pre-Owned
-                    </label>
-                  </div>
-                </div>
+                <label className="form-label">Status</label>
+                <select
+                  name="status"
+                  value={filters.status}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                >
+                  <option value="all">All Vehicles</option>
+                  <option value="available">Available ({filterStats?.total_available || 0})</option>
+                  <option value="sold">Sold ({filterStats?.total_sold || 0})</option>
+                </select>
               </div>
             </div>
           </div>
@@ -459,51 +211,70 @@ const InventoryPage: React.FC = () => {
           {/* Main Content */}
           <div className="flex-1">
             <div className="flex justify-between items-center mb-6">
-              <span className="text-gray-700">Showing {filteredVehicles.length} of {vehicles.length} vehicles</span>
-              <div className="flex items-center space-x-2">
-                <label htmlFor="sort-by" className="text-sm font-medium text-gray-700">Sort by:</label>
-                <select
-                  id="sort-by"
-                  name="sortBy"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 text-sm"
-                >
-                  <option value="newest">Newest Arrivals</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="mileage-asc">Mileage: Low to High</option>
-                  <option value="mileage-desc">Mileage: High to Low</option>
-                  <option value="year-desc">Year: New to Old</option>
-                  <option value="year-asc">Year: Old to New</option>
-                </select>
-              </div>
+              <span className="text-gray-700">
+                Showing {vehicles.length} of {pagination?.total_items || 0} vehicles
+              </span>
             </div>
 
-            {filteredVehicles.length === 0 ? (
+            {vehicles.length === 0 ? (
               <div className="text-center py-10">
                 <p className="text-lg text-gray-600">No vehicles found matching your criteria.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredVehicles.map(vehicle => (
-                  <VehicleCard
-                    key={vehicle.id}
-                    id={vehicle.id}
-                    make={vehicle.make}
-                    model={vehicle.model}
-                    year={vehicle.year}
-                    price={vehicle.price}
-                    mileage={vehicle.mileage}
-                    image={vehicle.images[0]}
-                    condition={vehicle.condition}
-                    tags={vehicle.tags}
-                  />
-                ))}
-              </div>
-            )}
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {vehicles.map(vehicle => (
+                    <VehicleCard
+                      key={vehicle.id}
+                      id={vehicle.id}
+                      make={vehicle.make}
+                      model={vehicle.model}
+                      year={vehicle.year}
+                      price={vehicle.price}
+                      mileage={vehicle.mileage}
+                      image={vehicle.images[0]}
+                      condition={vehicle.condition}
+                      tags={vehicle.tags}
+                    />
+                  ))}
+                </div>
 
-            {/* Pagination (if needed, will add later) */}
+                {/* Pagination */}
+                {pagination && pagination.total_pages > 1 && (
+                  <div className="mt-8 flex justify-center items-center space-x-4">
+                    <button
+                      onClick={() => handlePageChange(pagination.current_page - 1)}
+                      disabled={!pagination.has_previous}
+                      className={`flex items-center px-3 py-2 rounded-md ${
+                        pagination.has_previous
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                      Previous
+                    </button>
+                    
+                    <span className="text-gray-600">
+                      Page {pagination.current_page} of {pagination.total_pages}
+                    </span>
+                    
+                    <button
+                      onClick={() => handlePageChange(pagination.current_page + 1)}
+                      disabled={!pagination.has_next}
+                      className={`flex items-center px-3 py-2 rounded-md ${
+                        pagination.has_next
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      Next
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -531,214 +302,87 @@ const InventoryPage: React.FC = () => {
                   &times;
                 </button>
               </div>
+              
               <div className="space-y-6">
-                {/* Mobile Make Filter */}
+                {/* Mobile Category Filter */}
                 <div>
-                  <label className="form-label">Make</label>
+                  <label className="form-label">Category</label>
                   <select 
-                    name="make" 
-                    value={filters.make}
+                    name="category" 
+                    value={filters.category}
                     onChange={handleFilterChange}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   >
-                    <option value="">All Makes</option>
-                    {makes.map(make => (
-                      <option key={make} value={make}>{make}</option>
-                    ))}
+                    <option value="all">All Categories</option>
+                    <option value="sedan">Sedan ({filterStats?.categories.sedan || 0})</option>
+                    <option value="suv">SUV ({filterStats?.categories.suv || 0})</option>
+                    <option value="truck">Truck ({filterStats?.categories.truck || 0})</option>
+                    <option value="electric">Electric ({filterStats?.categories.electric || 0})</option>
+                    <option value="luxury">Luxury ({filterStats?.categories.luxury || 0})</option>
+                    <option value="compact">Compact ({filterStats?.categories.compact || 0})</option>
                   </select>
                 </div>
 
-                {/* Mobile Model */}
+                {/* Mobile Search */}
                 <div>
-                  <label className="form-label">Model</label>
+                  <label className="form-label">Search</label>
                   <input
                     type="text"
-                    name="model"
-                    placeholder="e.g., Camry"
-                    value={filters.model}
+                    name="search"
+                    placeholder="Search by make, model, or year"
+                    value={filters.search}
                     onChange={handleFilterChange}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   />
                 </div>
 
-                {/* Mobile Price Range */}
+                {/* Mobile Sort By */}
                 <div>
-                  <label className="form-label">Price Range</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
-                      name="minPrice"
-                      placeholder="Min"
-                      value={filters.minPrice}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <input
-                      type="number"
-                      name="maxPrice"
-                      placeholder="Max"
-                      value={filters.maxPrice}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Mobile Year Range */}
-                <div>
-                  <label className="form-label">Year Range</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
-                      name="minYear"
-                      placeholder="Min"
-                      value={filters.minYear}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <input
-                      type="number"
-                      name="maxYear"
-                      placeholder="Max"
-                      value={filters.maxYear}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Mobile Mileage Range */}
-                <div>
-                  <label className="form-label">Mileage Range</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
-                      name="minMileage"
-                      placeholder="Min"
-                      value={filters.minMileage}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <input
-                      type="number"
-                      name="maxMileage"
-                      placeholder="Max"
-                      value={filters.maxMileage}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Mobile Body Type */}
-                <div>
-                  <label className="form-label">Body Type</label>
-                  <select 
-                    name="bodyType" 
-                    value={filters.bodyType}
+                  <label className="form-label">Sort By</label>
+                  <select
+                    name="sort_by"
+                    value={filters.sort_by}
                     onChange={handleFilterChange}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   >
-                    <option value="">All Types</option>
-                    {bodyTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
+                    <option value="date_added">Newest Arrivals</option>
+                    <option value="price">Price</option>
+                    <option value="year">Year</option>
+                    <option value="mileage">Mileage</option>
+                    <option value="make">Make</option>
                   </select>
                 </div>
 
-                {/* Mobile Transmission */}
+                {/* Mobile Sort Order */}
                 <div>
-                  <label className="form-label">Transmission</label>
-                  <select 
-                    name="transmission" 
-                    value={filters.transmission}
+                  <label className="form-label">Sort Order</label>
+                  <select
+                    name="sort_order"
+                    value={filters.sort_order}
                     onChange={handleFilterChange}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   >
-                    <option value="">All Transmissions</option>
-                    {transmissions.map(transmission => (
-                      <option key={transmission} value={transmission}>{transmission}</option>
-                    ))}
+                    <option value="desc">High to Low</option>
+                    <option value="asc">Low to High</option>
                   </select>
                 </div>
 
-                {/* Mobile Tags */}
+                {/* Mobile Status */}
                 <div>
-                  <label className="form-label">Tags</label>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="mobile-tag-new"
-                        name="tags"
-                        value="New Arrivals"
-                        checked={filters.tags.includes('New Arrivals')}
-                        onChange={handleTagChange}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      />
-                      <label htmlFor="mobile-tag-new" className="ml-2 text-sm text-gray-700">
-                        New Arrivals
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="mobile-tag-featured"
-                        name="tags"
-                        value="Featured Vehicles"
-                        checked={filters.tags.includes('Featured Vehicles')}
-                        onChange={handleTagChange}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      />
-                      <label htmlFor="mobile-tag-featured" className="ml-2 text-sm text-gray-700">
-                        Featured Vehicles
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="mobile-tag-sale"
-                        name="tags"
-                        value="On Sale"
-                        checked={filters.tags.includes('On Sale')}
-                        onChange={handleTagChange}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      />
-                      <label htmlFor="mobile-tag-sale" className="ml-2 text-sm text-gray-700">
-                        On Sale
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="mobile-tag-low-mileage"
-                        name="tags"
-                        value="Low Mileage"
-                        checked={filters.tags.includes('Low Mileage')}
-                        onChange={handleTagChange}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      />
-                      <label htmlFor="mobile-tag-low-mileage" className="ml-2 text-sm text-gray-700">
-                        Low Mileage
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="mobile-tag-certified"
-                        name="tags"
-                        value="Certified Pre-Owned"
-                        checked={filters.tags.includes('Certified Pre-Owned')}
-                        onChange={handleTagChange}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      />
-                      <label htmlFor="mobile-tag-certified" className="ml-2 text-sm text-gray-700">
-                        Certified Pre-Owned
-                      </label>
-                    </div>
-                  </div>
+                  <label className="form-label">Status</label>
+                  <select
+                    name="status"
+                    value={filters.status}
+                    onChange={handleFilterChange}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  >
+                    <option value="all">All Vehicles</option>
+                    <option value="available">Available ({filterStats?.total_available || 0})</option>
+                    <option value="sold">Sold ({filterStats?.total_sold || 0})</option>
+                  </select>
                 </div>
               </div>
+
               <div className="mt-8 flex justify-end space-x-4">
                 <button
                   onClick={resetFilters}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import Icon from './Icon';
 
 const Footer: React.FC = () => {
   return (
@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
           {/* Company Info */}
           <div>
             <div className="flex items-center space-x-2 mb-4">
-              <Car className="h-8 w-8 text-blue-400" />
+              <Icon name="Car" size={32} className="text-blue-400" />
               <span className="text-xl font-bold">Saam Cars LLC</span>
             </div>
             <p className="text-gray-300 mb-4">
@@ -18,16 +18,16 @@ const Footer: React.FC = () => {
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-300 hover:text-blue-400">
-                <Facebook className="h-5 w-5" />
+                <Icon name="Facebook" size={20} />
               </a>
               <a href="#" className="text-gray-300 hover:text-blue-400">
-                <Twitter className="h-5 w-5" />
+                <Icon name="Twitter" size={20} />
               </a>
               <a href="#" className="text-gray-300 hover:text-blue-400">
-                <Instagram className="h-5 w-5" />
+                <Icon name="Instagram" size={20} />
               </a>
               <a href="#" className="text-gray-300 hover:text-blue-400">
-                <Linkedin className="h-5 w-5" />
+                <Icon name="Linkedin" size={20} />
               </a>
             </div>
           </div>
@@ -71,15 +71,15 @@ const Footer: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
             <ul className="space-y-3">
               <li className="flex items-start space-x-3">
-                <MapPin className="h-5 w-5 text-blue-400 mt-0.5" />
+                <Icon name="MapPin" size={20} className="text-blue-400 mt-0.5" />
                 <span className="text-gray-300">123 Auto Drive, Cartown, CT 12345</span>
               </li>
               <li className="flex items-center space-x-3">
-                <Phone className="h-5 w-5 text-blue-400" />
+                <Icon name="Phone" size={20} className="text-blue-400" />
                 <span className="text-gray-300">(555) 123-4567</span>
               </li>
               <li className="flex items-center space-x-3">
-                <Mail className="h-5 w-5 text-blue-400" />
+                <Icon name="Mail" size={20} className="text-blue-400" />
                 <span className="text-gray-300">info@saamcars.com</span>
               </li>
             </ul>

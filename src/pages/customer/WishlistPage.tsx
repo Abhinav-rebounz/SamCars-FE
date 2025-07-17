@@ -1,25 +1,81 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Heart, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { vehicles } from '../../data/vehicles';
+import { getWishlist, removeFromWishlist, WishlistVehicle } from '../../services/wishlist';
 
 const WishlistPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const [wishlistItems, setWishlistItems] = useState<WishlistVehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
+
+  useEffect(() => {
+    const fetchWishlist = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await getWishlist();
+        if (response.status === 'success' && response.data) {
+          setWishlistItems(response.data);
+        } else {
+          setError(response.message || 'Failed to fetch wishlist');
+        }
+      } catch (err) {
+        setError('Failed to fetch wishlist');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWishlist();
+  }, []);
   
-  // Mock wishlist data - in a real app, this would come from an API or context
-  // For demo purposes, we'll use the first 2 vehicles from our data
-  const wishlistItems = vehicles.slice(0, 2);
-  
-  const handleRemoveFromWishlist = (id: string) => {
-    // In a real app, this would remove the item from the wishlist
-    alert(`Removed vehicle ${id} from wishlist`);
+  const handleRemoveFromWishlist = async (id: number) => {
+    try {
+      const response = await removeFromWishlist(id);
+      if (response.status === 'success') {
+        setWishlistItems(prev => prev.filter(item => item.id !== id));
+      } else {
+        alert(response.message || 'Failed to remove from wishlist');
+      }
+    } catch (err) {
+      alert('Failed to remove from wishlist');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-gray-50 min-h-screen">
+        <div className="container-custom py-8">
+          <div className="flex items-center mb-8">
+            <Heart className="h-6 w-6 text-red-500 mr-2" />
+            <h1 className="heading-lg">My Wishlist</h1>
+          </div>
+          <div className="text-center py-10">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-gray-50 min-h-screen">
+        <div className="container-custom py-8">
+          <div className="flex items-center mb-8">
+            <Heart className="h-6 w-6 text-red-500 mr-2" />
+            <h1 className="heading-lg">My Wishlist</h1>
+          </div>
+          <div className="text-center py-10 text-red-500">{error}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -87,7 +143,7 @@ const WishlistPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-gray-600 text-sm">Exterior Color</p>
-                        <p className="font-semibold">{vehicle.exteriorColor}</p>
+                        <p className="font-semibold">{vehicle.exterior_color}</p>
                       </div>
                       <div>
                         <p className="text-gray-600 text-sm">Transmission</p>

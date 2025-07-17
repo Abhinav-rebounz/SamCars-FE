@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, ExternalLink, Image as ImageIcon } from 'lucide-react';
-import { getVehicleById } from '../../services/inventory';
+import { ArrowLeft, Edit, ExternalLink, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { getVehicleById, deleteVehicle } from '../../services/inventory';
 import { Vehicle } from '../../types/vehicle';
 import AddVehicleForm from '../../components/inventory/AddVehicleForm';
 
@@ -60,6 +60,24 @@ const VehicleDetails: React.FC = () => {
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+
+    try {
+      const response = await deleteVehicle(id);
+      if (response.success) {
+        navigate('/admin/inventory', { 
+          state: { message: 'Vehicle deleted successfully!' }
+        });
+      } else {
+        setError(response.error || 'Failed to delete vehicle');
+      }
+    } catch (err) {
+      console.error('Error deleting vehicle:', err);
+      setError('An error occurred while deleting the vehicle');
+    }
+  };
+
   const handleBack = () => {
     navigate('/admin/inventory');
   };
@@ -111,13 +129,13 @@ const VehicleDetails: React.FC = () => {
         <div className="mb-8">
           <button
             onClick={handleBack}
-            className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
+            className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Inventory
           </button>
           
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 {vehicle.make} {vehicle.model} {vehicle.year}
@@ -128,22 +146,35 @@ const VehicleDetails: React.FC = () => {
               )}
             </div>
             
-            <div className="flex space-x-3">
+            <div className="flex items-center space-x-4">
               {vehicle.carfax_link && (
-                <button
-                  onClick={() => window.open(vehicle.carfax_link, '_blank')}
-                  className="flex items-center bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700"
+                <a
+                  href={vehicle.carfax_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Carfax
-                </button>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Carfax Report
+                </a>
               )}
               <button
                 onClick={handleEdit}
-                className="flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                className="flex items-center bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Vehicle
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to delete this vehicle? This action cannot be undone.')) {
+                    handleDelete();
+                  }
+                }}
+                className="flex items-center bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
               </button>
             </div>
           </div>
@@ -203,6 +234,12 @@ const VehicleDetails: React.FC = () => {
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Price</dt>
                     <dd className="text-sm text-gray-900">${vehicle.price.toLocaleString()}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Sold Price</dt>
+                    <dd className="text-sm text-gray-900">
+                      {vehicle.sold_price ? `$${vehicle.sold_price.toLocaleString()}` : 'Not sold'}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Mileage</dt>

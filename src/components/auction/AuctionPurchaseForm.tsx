@@ -1,92 +1,149 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { addAuctionPurchase, updateAuctionPurchase } from '../../services/auction';
+import { X } from 'lucide-react';
 
-interface AuctionPurchaseFormProps {
-  formRef: React.RefObject<HTMLFormElement>;
-  onSuccess?: () => void;
-  initialData?: any; // For editing existing auction purchase
+interface ExistingImage {
+  id?: string;
+  url: string;
+  toDelete?: boolean;
 }
 
-const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSuccess, initialData }) => {
-  const [formData, setFormData] = useState({
-    // Vehicle fields
-    make: '',
-    model: '',
-    year: '',
-    mileage: '',
-    vin: '',
-    exterior_color: '',
-    interior_color: '',
-    transmission: '',
-    body_type: '',
-    description: '',
-    status: 'available',
-    condition: 'used',
-    fuel_type: '',
-    tags: [] as string[],
-    carfax_link: '',
-    // Auction fields
-    purchase_date: '',
-    purchase_price: '',
-    additional_costs: '',
-    list_price: '',
-    sold_price: '',
-    notes: '',
-  });
+interface FormData {
+  // Vehicle fields
+  make: string;
+  model: string;
+  year: string;
+  mileage: string;
+  vin: string;
+  exterior_color: string;
+  interior_color: string;
+  transmission: string;
+  body_type: string;
+  description: string;
+  status: string;
+  condition: string;
+  fuel_type: string;
+  tags: string[];
+  carfax_link: string;
+  // Auction fields
+  purchase_date: string;
+  purchase_price: string;
+  additional_costs: string;
+  list_price: string;
+  sold_price: string;
+  notes: string;
+  features: string[];
+  engine: string;
+  location: string;
+  stock_number: string;
+  is_featured: boolean;
+}
 
-  const [images, setImages] = useState<File[]>([]);
+interface AuctionPurchaseFormProps {
+  initialData?: any;
+  onSuccess: () => void;
+  onCancel: () => void;
+  isEditing?: boolean;
+}
+
+const INITIAL_FORM_DATA: FormData = {
+  make: '',
+  model: '',
+  year: '',
+  mileage: '',
+  vin: '',
+  exterior_color: '',
+  interior_color: '',
+  transmission: '',
+  body_type: '',
+  description: '',
+  status: 'reserved', // Changed from 'auction' to 'reserved'
+  condition: 'used',
+  fuel_type: '',
+  tags: [],
+  carfax_link: '',
+  purchase_date: new Date().toISOString().split('T')[0],
+  purchase_price: '',
+  additional_costs: '',
+  list_price: '',
+  sold_price: '',
+  notes: '',
+  features: [],
+  engine: '',
+  location: '',
+  stock_number: '',
+  is_featured: false
+};
+
+const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({
+  initialData,
+  onSuccess,
+  onCancel,
+  isEditing = false
+}) => {
+  const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
 
-  // Populate form with initial data when editing
   useEffect(() => {
     if (initialData) {
-      console.log('Setting initial data for editing:', initialData);
       setFormData({
-        make: initialData.make || '',
-        model: initialData.model || '',
+        ...INITIAL_FORM_DATA,
+        ...initialData,
         year: initialData.year?.toString() || '',
         mileage: initialData.mileage?.toString() || '',
-        vin: initialData.vin || '',
-        exterior_color: initialData.exterior_color || '',
-        interior_color: initialData.interior_color || '',
-        transmission: initialData.transmission || '',
-        body_type: initialData.body_type || '',
-        description: initialData.description || '',
-        status: initialData.status || 'available',
-        condition: initialData.condition || 'used',
-        fuel_type: initialData.fuel_type || '',
-        tags: Array.isArray(initialData.tags) ? initialData.tags : [],
-        carfax_link: initialData.carfax_link || '',
-        purchase_date: initialData.purchase_date || '',
         purchase_price: initialData.purchase_price?.toString() || '',
         additional_costs: initialData.additional_costs?.toString() || '',
         list_price: initialData.list_price?.toString() || '',
         sold_price: initialData.sold_price?.toString() || '',
-        notes: initialData.notes || '',
+        purchase_date: initialData.purchase_date ? new Date(initialData.purchase_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        tags: Array.isArray(initialData.tags) ? initialData.tags : [],
+        features: Array.isArray(initialData.features) ? initialData.features : [],
+        is_featured: initialData.is_featured || false
       });
+
+      if (initialData.images && Array.isArray(initialData.images)) {
+        const processedImages = initialData.images
+          .map((img: any, index: number) => ({
+            id: `existing-${index}`,
+            url: typeof img === 'string' ? img : (img.url || img.image_url || ''),
+            toDelete: false,
+          }))
+          .filter((img: ExistingImage) => img.url);
+        setExistingImages(processedImages);
+      }
     }
   }, [initialData]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    
     if (type === 'checkbox') {
       const checkbox = e.target as HTMLInputElement;
+      const checked = checkbox.checked;
       if (name === 'tags') {
-        const currentTags = formData.tags;
-        if (checkbox.checked) {
-          setFormData(prev => ({
-            ...prev,
-            tags: [...currentTags, value]
-          }));
-        } else {
-          setFormData(prev => ({
-            ...prev,
-            tags: currentTags.filter(tag => tag !== value)
-          }));
-        }
+        setFormData(prev => ({
+          ...prev,
+          tags: checked 
+            ? [...prev.tags, value]
+            : prev.tags.filter(tag => tag !== value)
+        }));
+      } else if (name === 'features') {
+        setFormData(prev => ({
+          ...prev,
+          features: checked 
+            ? [...prev.features, value]
+            : prev.features.filter(feature => feature !== value)
+        }));
+      } else if (name === 'is_featured') {
+        setFormData(prev => ({
+          ...prev,
+          is_featured: checked
+        }));
       }
     } else {
       setFormData(prev => ({
@@ -98,113 +155,214 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setImages(Array.from(e.target.files));
+      const filesArray = Array.from(e.target.files);
+      setNewImages(prev => [...prev, ...filesArray]);
+      const urls = filesArray.map(file => URL.createObjectURL(file));
+      setPreviewUrls(prev => [...prev, ...urls]);
     }
   };
+
+  const removeNewImage = (index: number) => {
+    const urlToRevoke = previewUrls[index];
+    URL.revokeObjectURL(urlToRevoke);
+    setNewImages(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageError = (index: number, type: 'existing' | 'new') => {
+    if (type === 'existing') {
+      setImageLoadErrors(prev => new Set(prev).add(index));
+    }
+  };
+
+  const toggleExistingImageForDeletion = (index: number) => {
+    setExistingImages(prev => 
+      prev.map((img, i) => 
+        i === index ? { ...img, toDelete: !img.toDelete } : img
+      )
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError(null);
+    setSuccess(null);
 
     try {
-      const purchaseData = new FormData();
+      const formDataToSend = new FormData();
 
-      // Only send non-empty fields to avoid Multer "Too many fields" error
+      console.log('Form data before submission:', formData);
+
+      // Append all fields except images
       Object.entries(formData).forEach(([key, value]) => {
-        if (key === 'images') {
-          // Skip: images are handled separately below
-          return;
-        } else if (Array.isArray(value)) {
-          // Only send arrays if they have content
-          if (value.length > 0) {
-            purchaseData.append(key, JSON.stringify(value));
+        if (key !== 'images') {
+          if (key === 'tags' || key === 'features') {
+            formDataToSend.append(key, JSON.stringify(value || []));
+          } else if (key === 'is_featured') {
+            formDataToSend.append(key, value ? 'true' : 'false');
+          } else {
+            formDataToSend.append(key, value as string);
           }
-        } else if (value !== undefined && value !== null) {
-          // Send all values (including empty strings) for proper validation
-          purchaseData.append(key, value);
         }
       });
 
-      // Add images
-      images.forEach((image, index) => {
-        purchaseData.append('images', image);
+      // Append new images
+      newImages.forEach((file: File) => {
+        formDataToSend.append('images', file);
       });
 
-      console.log('Sending auction purchase data:', Object.fromEntries(purchaseData.entries()));
-
-      // Use the auction service functions instead of direct fetch
-      let response;
-      if (initialData) {
-        response = await updateAuctionPurchase(initialData.id, purchaseData);
-      } else {
-        response = await addAuctionPurchase(purchaseData);
+      // Handle existing images
+      const imagesToDelete = existingImages
+        .filter(img => img.toDelete)
+        .map(img => img.url);
+      
+      if (imagesToDelete.length > 0) {
+        formDataToSend.append('images_to_delete', JSON.stringify(imagesToDelete));
       }
 
-      if (response.success) {
-        console.log(`Auction purchase ${initialData ? 'updated' : 'added'} successfully:`, response);
-        setError(''); // Clear any previous error before closing
-        if (onSuccess) onSuccess(); // Only call onSuccess, let parent handle the message and closing
-        
-        // Reset form only if not editing
-        if (!initialData) {
-          setFormData({
-            make: '',
-            model: '',
-            year: '',
-            mileage: '',
-            vin: '',
-            exterior_color: '',
-            interior_color: '',
-            transmission: '',
-            body_type: '',
-            description: '',
-            status: 'available',
-            condition: 'used',
-            fuel_type: '',
-            tags: [],
-            carfax_link: '',
-            purchase_date: '',
-            purchase_price: '',
-            additional_costs: '',
-            list_price: '',
-            sold_price: '',
-            notes: '',
-          });
-          setImages([]);
+      const existingImagesToKeep = existingImages
+        .filter(img => !img.toDelete)
+        .map(img => img.url);
+      
+      if (existingImagesToKeep.length > 0) {
+        formDataToSend.append('existing_images', JSON.stringify(existingImagesToKeep));
+      }
+
+      // Debug FormData contents
+      console.log('FormData contents:');
+      for (let [key, value] of formDataToSend.entries()) {
+        console.log(`${key}:`, value);
+      }
+
+      if (isEditing && initialData?.id) {
+        formDataToSend.append('id', initialData.id.toString());
+        const response = await updateAuctionPurchase(formDataToSend);
+        if (response.success) {
+          setSuccess('Auction purchase updated successfully!');
+          onSuccess();
+        } else {
+          setError(response.error || 'Failed to update auction purchase');
         }
-        
       } else {
-        throw new Error(response.error || `Failed to ${initialData ? 'update' : 'add'} auction purchase`);
+        const response = await addAuctionPurchase(formDataToSend);
+        console.log('Add auction purchase response:', response);
+        if (response.success) {
+          setSuccess('Auction purchase added successfully!');
+          onSuccess();
+        } else {
+          setError(response.error || 'Failed to add auction purchase');
+        }
       }
     } catch (err) {
-      console.error(`Error ${initialData ? 'updating' : 'adding'} auction purchase:`, err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Form submission error:', err);
+      setError('An error occurred while saving the auction purchase');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-7xl mx-auto">
       {error && (
-        <div className="text-red-500 p-2 bg-red-50 rounded border border-red-200">
-          <div className="font-medium">Please fix the following error:</div>
-          <div className="mt-1">{error}</div>
-          {error.includes('required') && (
-            <div className="mt-2 text-sm text-red-600">
-              Please fill in all required fields marked with * before submitting.
-            </div>
-          )}
+        <div className="text-red-500 p-2 bg-red-50 rounded flex justify-between items-center">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-red-600 hover:text-red-800"
+          >
+            ×
+          </button>
         </div>
       )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Vehicle Information Section */}
-        <div className="col-span-2">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Vehicle Information</h3>
+
+      {/* Auction Purchase Details */}
+      <div className="bg-blue-50 p-4 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-blue-900 mb-4">Auction Purchase Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Purchase Date</label>
+            <input
+              type="date"
+              name="purchase_date"
+              value={formData.purchase_date}
+              onChange={handleInputChange}
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Purchase Price</label>
+            <input
+              type="number"
+              name="purchase_price"
+              value={formData.purchase_price}
+              onChange={handleInputChange}
+              required
+              min="0"
+              step="0.01"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Additional Costs</label>
+            <input
+              type="number"
+              name="additional_costs"
+              value={formData.additional_costs}
+              onChange={handleInputChange}
+              min="0"
+              step="0.01"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">List Price</label>
+            <input
+              type="number"
+              name="list_price"
+              value={formData.list_price}
+              onChange={handleInputChange}
+              min="0"
+              step="0.01"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Sold Price</label>
+            <input
+              type="number"
+              name="sold_price"
+              value={formData.sold_price}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData(prev => ({
+                  ...prev,
+                  sold_price: value,
+                  status: value && parseFloat(value) > 0 ? 'sold' : prev.status
+                }));
+              }}
+              min="0"
+              step="0.01"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
         </div>
-        
+      </div>
+
+      {/* Vehicle Details */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Make *</label>
           <input
@@ -214,10 +372,9 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             onChange={handleInputChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Model *</label>
           <input
@@ -227,10 +384,9 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             onChange={handleInputChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Year *</label>
           <input
@@ -238,95 +394,51 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             name="year"
             value={formData.year}
             onChange={handleInputChange}
+            required
             min="1900"
             max={new Date().getFullYear() + 1}
-            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">VIN</label>
-          <input
-            type="text"
-            name="vin"
-            value={formData.vin}
-            onChange={handleInputChange}
-            maxLength={17}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Mileage</label>
+          <label className="block text-sm font-medium text-gray-700">Mileage *</label>
           <input
             type="number"
             name="mileage"
             value={formData.mileage}
             onChange={handleInputChange}
+            required
             min="0"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">Status *</label>
-          <select
-            name="status"
-            value={formData.status}
+          <label className="block text-sm font-medium text-gray-700">VIN *</label>
+          <input
+            type="text"
+            name="vin"
+            value={formData.vin}
+            onChange={handleInputChange}
+            required
+            maxLength={17}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Stock Number *</label>
+          <input
+            type="text"
+            name="stock_number"
+            value={formData.stock_number}
             onChange={handleInputChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
-          >
-            <option value="">Select status</option>
-            <option value="available">Available</option>
-            <option value="sold">Sold</option>
-            <option value="pending">Pending</option>
-            <option value="maintenance">Maintenance</option>
-          </select>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Carfax Link</label>
-          <input
-            type="url"
-            name="carfax_link"
-            value={formData.carfax_link}
-            onChange={handleInputChange}
-            placeholder="https://www.carfax.com/..."
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Exterior Color</label>
-          <input
-            type="text"
-            name="exterior_color"
-            value={formData.exterior_color}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Interior Color</label>
-          <input
-            type="text"
-            name="interior_color"
-            value={formData.interior_color}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
-          />
-        </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Transmission *</label>
           <select
@@ -335,7 +447,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             onChange={handleInputChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           >
             <option value="">Select transmission</option>
             <option value="automatic">Automatic</option>
@@ -344,7 +455,7 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             <option value="semi_automatic">Semi-Automatic</option>
           </select>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Body Type *</label>
           <select
@@ -353,7 +464,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             onChange={handleInputChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           >
             <option value="">Select body type</option>
             <option value="sedan">Sedan</option>
@@ -364,10 +474,27 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             <option value="hatchback">Hatchback</option>
             <option value="minivan">Minivan</option>
             <option value="van">Van</option>
-            <option value="wagon">Wagon</option>
           </select>
         </div>
-        
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Fuel Type *</label>
+          <select
+            name="fuel_type"
+            value={formData.fuel_type}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            <option value="">Select fuel type</option>
+            <option value="gasoline">Gasoline</option>
+            <option value="diesel">Diesel</option>
+            <option value="electric">Electric</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="plug_in_hybrid">Plug-in Hybrid</option>
+          </select>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Condition *</label>
           <select
@@ -376,7 +503,6 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             onChange={handleInputChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           >
             <option value="">Select condition</option>
             <option value="new">New</option>
@@ -387,204 +513,281 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({ formRef, onSu
             <option value="fair">Fair</option>
           </select>
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">Fuel Type *</label>
+          <label className="block text-sm font-medium text-gray-700">Status *</label>
           <select
-            name="fuel_type"
-            value={formData.fuel_type}
+            name="status"
+            value={formData.status}
             onChange={handleInputChange}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           >
-            <option value="">Select fuel type</option>
-            <option value="gasoline">Gasoline</option>
-            <option value="diesel">Diesel</option>
-            <option value="electric">Electric</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="plug_in_hybrid">Plug-in Hybrid</option>
+            <option value="">Select status</option>
+            <option value="available">Available</option>
+            <option value="sold">Sold</option>
+            <option value="pending">Pending</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="reserved">Reserved</option>
           </select>
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">Tags</label>
-          <div className="flex flex-wrap gap-2 mt-1">
-            {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History', 'Mark as Featured'].map(tag => (
-              <label key={tag} className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  name="tags"
-                  value={tag}
-                  checked={formData.tags.includes(tag)}
-                  onChange={handleInputChange}
-                  className="mr-2"
-                  disabled={loading}
-                />
-                {tag}
-              </label>
-            ))}
-          </div>
-        </div>
-        
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Description</label>
-          <textarea
-            name="description"
-            value={formData.description}
+          <label className="block text-sm font-medium text-gray-700">Carfax Report Link</label>
+          <input
+            type="url"
+            name="carfax_link"
+            value={formData.carfax_link}
             onChange={handleInputChange}
-            rows={2}
+            placeholder="https://www.carfax.com/vehicle/..."
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
-        {/* Auction Information Section */}
-        <div className="col-span-2">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Auction Information</h3>
-        </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">Purchase Date *</label>
+          <label className="block text-sm font-medium text-gray-700">Exterior Color</label>
           <input
-            type="date"
-            name="purchase_date"
-            value={formData.purchase_date}
+            type="text"
+            name="exterior_color"
+            value={formData.exterior_color}
             onChange={handleInputChange}
-            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">Purchase Price *</label>
+          <label className="block text-sm font-medium text-gray-700">Interior Color</label>
           <input
-            type="number"
-            name="purchase_price"
-            value={formData.purchase_price}
+            type="text"
+            name="interior_color"
+            value={formData.interior_color}
             onChange={handleInputChange}
-            min="0"
-            step="0.01"
-            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">Additional Costs</label>
+          <label className="block text-sm font-medium text-gray-700">Engine</label>
           <input
-            type="number"
-            name="additional_costs"
-            value={formData.additional_costs}
+            type="text"
+            name="engine"
+            value={formData.engine}
             onChange={handleInputChange}
-            min="0"
-            step="0.01"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
           />
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">List Price</label>
+          <label className="block text-sm font-medium text-gray-700">Location</label>
           <input
-            type="number"
-            name="list_price"
-            value={formData.list_price}
+            type="text"
+            name="location"
+            value={formData.location}
             onChange={handleInputChange}
-            min="0"
-            step="0.01"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Sold Price</label>
-          <input
-            type="number"
-            name="sold_price"
-            value={formData.sold_price}
-            onChange={handleInputChange}
-            min="0"
-            step="0.01"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
-          />
-        </div>
-        
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Notes</label>
-          <textarea
-            name="notes"
-            value={formData.notes}
-            onChange={handleInputChange}
-            rows={3}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            disabled={loading}
-          />
-        </div>
-        
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Vehicle Images</label>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleImageChange}
-            className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            disabled={loading}
           />
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3">
+      {/* Featured checkbox */}
+      <div className="flex items-center mt-4">
+        <input
+          type="checkbox"
+          name="is_featured"
+          checked={formData.is_featured}
+          onChange={handleInputChange}
+          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 mr-2"
+        />
+        <label className="text-sm font-medium text-gray-700">Mark as Featured</label>
+      </div>
+
+      {/* Features */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Features</label>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {['Bluetooth', 'Backup Camera', 'Navigation', 'Heated Seats', 'Sunroof', 'Remote Start', 'Blind Spot Monitor', 'Apple CarPlay', 'Android Auto'].map(feature => (
+            <label key={feature} className="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="features"
+                value={feature}
+                checked={formData.features.includes(feature)}
+                onChange={handleInputChange}
+                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 mr-2"
+              />
+              <span className="text-sm text-gray-700">{feature}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History'].map(tag => (
+            <label key={tag} className="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="tags"
+                value={tag}
+                checked={formData.tags.includes(tag)}
+                onChange={handleInputChange}
+                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 mr-2"
+              />
+              <span className="text-sm text-gray-700">{tag}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Description</label>
+        <textarea
+          name="description"
+          value={formData.description}
+          onChange={handleInputChange}
+          rows={4}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Notes</label>
+        <textarea
+          name="notes"
+          value={formData.notes}
+          onChange={handleInputChange}
+          rows={4}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          placeholder="Add any additional notes about the auction purchase..."
+        />
+      </div>
+
+      {/* Images */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Images</label>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageChange}
+          className="mt-1 block w-full"
+        />
+        <p className="text-sm text-gray-500 mt-1">
+          {isEditing 
+            ? "Select new images to add to existing images. Use the × button on existing images to remove them."
+            : "Select multiple images to upload. Supported formats: JPG, PNG, GIF"
+          }
+        </p>
+      </div>
+
+      {/* Image Preview */}
+      {(existingImages.length > 0 || previewUrls.length > 0) && (
+        <div>
+          <h3 className="text-lg font-medium text-gray-700 mb-3">Image Preview</h3>
+          
+          {isEditing && existingImages.length > 0 && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Image Management:</strong> New images will be added to your existing images. 
+                To remove existing images, click the × button on them. Images marked with red border will be deleted.
+              </p>
+            </div>
+          )}
+          
+          {/* Existing Images */}
+          {existingImages.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-600 mb-2">Current Images</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {existingImages.map((image, idx) => (
+                  <div key={`existing-${idx}`} className="relative group">
+                    {!imageLoadErrors.has(idx) ? (
+                      <img
+                        src={image.url}
+                        alt={`Existing vehicle image ${idx + 1}`}
+                        className={`w-full h-32 object-cover rounded-lg border-2 ${
+                          image.toDelete ? 'border-red-300 opacity-50' : 'border-gray-200'
+                        }`}
+                        onError={() => handleImageError(idx, 'existing')}
+                      />
+                    ) : (
+                      <div className="w-full h-32 bg-gray-200 rounded-lg border-2 border-gray-300 flex items-center justify-center">
+                        <span className="text-gray-500 text-sm">Failed to load</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => toggleExistingImageForDeletion(idx)}
+                      className={`absolute top-2 right-2 p-1 rounded-full ${
+                        image.toDelete 
+                          ? 'bg-green-500 text-white hover:bg-green-600' 
+                          : 'bg-red-500 text-white hover:bg-red-600'
+                      } transition-colors duration-200`}
+                      title={image.toDelete ? 'Keep image' : 'Remove image'}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className={`absolute bottom-2 left-2 text-xs px-2 py-1 rounded ${
+                      image.toDelete ? 'bg-red-500 text-white' : 'bg-gray-500 text-white'
+                    }`}>
+                      {image.toDelete ? 'To Delete' : 'Current'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* New Images */}
+          {previewUrls.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-blue-600 mb-2">New Images</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {previewUrls.map((url, idx) => (
+                  <div key={`preview-${idx}`} className="relative group">
+                    <img
+                      src={url}
+                      alt={`New vehicle image ${idx + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border-2 border-blue-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeNewImage(idx)}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors duration-200"
+                      title="Remove image"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                      New
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Form Actions */}
+      <div className="flex justify-end space-x-4 pt-6">
         <button
           type="button"
-          onClick={() => {
-            setFormData({
-              make: '',
-              model: '',
-              year: '',
-              mileage: '',
-              vin: '',
-              exterior_color: '',
-              interior_color: '',
-              transmission: '',
-              body_type: '',
-              description: '',
-              status: 'available',
-              condition: 'used',
-              fuel_type: '',
-              tags: [],
-              carfax_link: '',
-              purchase_date: '',
-              purchase_price: '',
-              additional_costs: '',
-              list_price: '',
-              sold_price: '',
-              notes: '',
-            });
-            setImages([]);
-            setError('');
-            setSuccess(false);
-          }}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          onClick={onCancel}
+          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
-          Clear Form
+          Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
         >
-          {loading ? (
-            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (initialData ? 'Update Auction Purchase' : 'Add Auction Purchase')}
+          {loading ? 'Saving...' : isEditing ? 'Update Auction Purchase' : 'Add Auction Purchase'}
         </button>
       </div>
     </form>

@@ -21,12 +21,13 @@ import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminInventory from './pages/admin/Inventory';
 import AdminVehicleDetails from './pages/admin/VehicleDetails';
-// import AdminAppointments from './pages/admin/Appointments';
 import AdminPayments from './pages/admin/Payments';
 import AdminAuctions from './pages/admin/Auctions';
+import AdminAuctionDetails from './pages/admin/AuctionDetails';
 import AdminServices from './pages/admin/Services';
 import AdminLogin from './pages/admin/Login';
 import AdminProfile from './pages/admin/Profile';
+import AdminRoute from './components/auth/AdminRoute';
 
 // Context Providers
 import { AuthProvider } from './contexts/AuthContext';
@@ -56,16 +57,20 @@ function App() {
           </Route>
           
           {/* Admin Routes */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="inventory" element={<AdminInventory />} />
-            <Route path="inventory/:id" element={<AdminVehicleDetails />} />
-            {/* <Route path="appointments" element={<AdminAppointments />} /> */}
-            <Route path="payments" element={<AdminPayments />} />
-            <Route path="auctions" element={<AdminAuctions />} />
-            <Route path="services" element={<AdminServices />} />
-            <Route path="profile" element={<AdminProfile />} />
+          <Route path="/admin">
+            <Route path="login" element={<AdminLogin />} />
+            <Route element={<AdminRoute />}>
+              <Route element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="inventory" element={<AdminInventory />} />
+                <Route path="inventory/:id" element={<AdminVehicleDetails />} />
+                <Route path="payments" element={<AdminPayments />} />
+                <Route path="auctions" element={<AdminAuctions />} />
+                <Route path="auctions/:id" element={<AdminAuctionDetails />} />
+                <Route path="services" element={<AdminServices />} />
+                <Route path="profile" element={<AdminProfile />} />
+              </Route>
+            </Route>
           </Route>
           
           {/* Payment Routes */}

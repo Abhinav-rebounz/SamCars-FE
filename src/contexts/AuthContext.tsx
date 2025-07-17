@@ -2,9 +2,9 @@ import React, { createContext, useState, useContext, useEffect, ReactNode } from
 import { login as loginService, register as registerService, logout as logoutService } from '../services/auth';
 
 interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
   name: string;
   email: string;
   role: 'customer' | 'admin';
@@ -35,15 +35,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const accessToken = localStorage.getItem('accessToken');
     const storedUser = localStorage.getItem('user');
 
-    if (token && storedUser) {
+    if (accessToken && storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser({
+          ...parsedUser,
+          name: `${parsedUser.firstName} ${parsedUser.lastName}`
+        });
       } catch {
+        // Clear invalid data
         localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
       }
     }
   }, []);
@@ -56,14 +62,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const result = await loginService(email, password);
       
       if (result.success && result.user) {
-        setUser({
-          ...result.user,
-          role: result.user.role as 'customer' | 'admin'
-        });
+        setUser(result.user);
         return { success: true };
       } else {
-        setError(result.error || 'Login failed');
-        return { success: false, error: result.error || 'Login failed' };
+        const errorMessage = result.error || 'Login failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
       }
     } catch (err) {
       const errorMessage = 'Login failed. Please try again.';
@@ -87,14 +91,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const result = await registerService(firstName, lastName, email, password);
       
       if (result.success && result.user) {
-        setUser({
-          ...result.user,
-          role: result.user.role as 'customer' | 'admin'
-        });
+        setUser(result.user);
         return { success: true };
       } else {
-        setError(result.error || 'Registration failed');
-        return { success: false, error: result.error || 'Registration failed' };
+        const errorMessage = result.error || 'Registration failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
       }
     } catch (err) {
       const errorMessage = 'Registration failed. Please try again.';
@@ -105,8 +107,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    logoutService();
+  const logout = async () => {
+    await logoutService();
     setUser(null);
     setError(null);
   };

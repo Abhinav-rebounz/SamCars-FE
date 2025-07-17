@@ -41,10 +41,43 @@ interface AddVehicleResponse {
   error?: string;
 }
 
-interface GetInventoryResponse {
+export interface InventoryFilters {
+  category?: string;
+  limit?: number;
+  page?: number;
+  search?: string;
+  sort_by?: 'date_added' | 'price' | 'year' | 'mileage' | 'make';
+  sort_order?: 'asc' | 'desc';
+  status?: string;
+}
+
+export interface PaginationInfo {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+export interface FilterStats {
+  total_available: number;
+  total_sold: number;
+  categories: {
+    sedan: number;
+    suv: number;
+    truck: number;
+    electric: number;
+    luxury: number;
+    compact: number;
+  };
+}
+
+export interface GetInventoryResponse {
   success: boolean;
   vehicles?: Vehicle[];
-  pagination?: any;
+  pagination?: PaginationInfo;
+  filter_stats?: FilterStats;
   error?: string;
 }
 
@@ -117,7 +150,6 @@ export const updateVehicle = async (vehicleData: FormData): Promise<AddVehicleRe
     console.log('Backend update response:', response.data);
     
     if (response.data.status === 'success') {
-      // For update, we don't need to return the vehicle data since it's just a success confirmation
       return { success: true };
     } else {
       return { success: false, error: response.data.message || 'Failed to update vehicle' };
@@ -154,19 +186,33 @@ export const updateVehicle = async (vehicleData: FormData): Promise<AddVehicleRe
   }
 };
 
-export const getInventory = async (filters?: Record<string, any>): Promise<GetInventoryResponse> => {
+export const getInventory = async (filters?: InventoryFilters): Promise<GetInventoryResponse> => {
   try {
-    const response = await api.get(API_ENDPOINTS.FETCH_VEHICLES, { params: filters });
+    console.log('Fetching inventory with filters:', filters);
+    console.log('Using endpoint:', API_ENDPOINTS.INVENTORY);
+    
+    const response = await api.get(API_ENDPOINTS.INVENTORY, { 
+      params: {
+        limit: filters?.limit || 10,
+        page: filters?.page || 1,
+        search: filters?.search || '',
+        sort_by: filters?.sort_by || 'date_added',
+        sort_order: filters?.sort_order || 'desc',
+        status: filters?.status || 'all',
+        category: filters?.category || 'all'
+      }
+    });
+    
+    console.log('Inventory API response:', response.data);
     
     if (response.data.status === 'success' && response.data.data) {
-      const vehicles = Array.isArray(response.data.data.vehicles) 
-        ? response.data.data.vehicles.map(mapBackendVehicle)
-        : [];
+      const { vehicles, pagination, filter_stats } = response.data.data;
       
       return { 
         success: true, 
-        vehicles,
-        pagination: response.data.data.pagination
+        vehicles: Array.isArray(vehicles) ? vehicles.map(mapBackendVehicle) : [],
+        pagination,
+        filter_stats
       };
     } else {
       return {
@@ -176,6 +222,8 @@ export const getInventory = async (filters?: Record<string, any>): Promise<GetIn
     }
   } catch (error: unknown) {
     const axiosError = error as AxiosError<ErrorResponse>;
+    console.error('Error fetching inventory:', axiosError.response?.data);
+    console.error('Error config:', axiosError.config);
     return {
       success: false,
       error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to fetch inventory'

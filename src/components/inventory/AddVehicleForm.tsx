@@ -43,7 +43,8 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
     features: [] as string[],
     location: '',
     stock_number: '',
-    is_featured: false
+    is_featured: false,
+    sold_price: ''
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +80,8 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         features: initialData.features || [],
         location: initialData.location || '',
         stock_number: initialData.stock_number || '',
-        is_featured: initialData.is_featured || false
+        is_featured: initialData.is_featured || false,
+        sold_price: initialData.sold_price || ''
       });
       
       // Load existing images for edit - handle both string array and object array formats
@@ -122,7 +124,8 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         features: [],
         location: '',
         stock_number: '',
-        is_featured: false
+        is_featured: false,
+        sold_price: ''
       });
       setExistingImages([]);
       setNewImages([]);
@@ -251,7 +254,16 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         .map(img => img.url);
       
       if (imagesToDelete.length > 0) {
-        formDataToSend.append('imagesToDelete', JSON.stringify(imagesToDelete));
+        formDataToSend.append('images_to_delete', JSON.stringify(imagesToDelete));
+      }
+
+      // Add list of existing images to keep
+      const existingImagesToKeep = existingImages
+        .filter(img => !img.toDelete)
+        .map(img => img.url);
+      
+      if (existingImagesToKeep.length > 0) {
+        formDataToSend.append('existing_images', JSON.stringify(existingImagesToKeep));
       }
 
       // Debug logging
@@ -371,6 +383,26 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700">Sold Price</label>
+          <input
+            type="number"
+            name="sold_price"
+            value={formData.sold_price}
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData(prev => ({
+                ...prev,
+                sold_price: value,
+                status: value && parseFloat(value) > 0 ? 'sold' : prev.status
+              }));
+            }}
+            min="0"
+            step="0.01"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700">Mileage</label>
           <input
             type="number"
@@ -482,6 +514,7 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
             <option value="sold">Sold</option>
             <option value="pending">Pending</option>
             <option value="maintenance">Maintenance</option>
+            <option value="auction">Auction</option>
           </select>
         </div>
 

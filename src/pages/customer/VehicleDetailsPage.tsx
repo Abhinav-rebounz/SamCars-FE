@@ -51,7 +51,7 @@ const VehicleDetailsPage: React.FC = () => {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showTestDriveForm, setShowTestDriveForm] = useState(false);
@@ -151,11 +151,16 @@ const VehicleDetailsPage: React.FC = () => {
 
   const handleHoldVehicle = async () => {
     if (!vehicle) return;
+
+    if (!isAuthenticated || !user) {
+      alert('Please log in to hold this vehicle.');
+      return;
+    }
   
     try {
       const { data } = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
         vehicle_id: vehicle.id,
-        user_id: null // TODO: get user id from auth context
+        user_id: user.id
       });
   
       if (data.url) {
@@ -279,7 +284,7 @@ const VehicleDetailsPage: React.FC = () => {
                       <img 
                         src={image} 
                         alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} thumbnail ${index + 1}`} 
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     </div>
                   ))}

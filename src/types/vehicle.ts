@@ -4,6 +4,7 @@ export interface Vehicle {
   model: string;
   year: number;
   price: number;
+  sold_price?: number;
   mileage?: number;
   vin?: string;
   exterior_color?: string;
