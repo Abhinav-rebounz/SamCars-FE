@@ -85,6 +85,8 @@ export const API_ENDPOINTS = {
     LOGOUT: '/auth/logout',
     REQUEST_PASSWORD_RESET: '/auth/request-password-reset',
     RESET_PASSWORD: '/auth/reset-password',
+    REQUEST_VERIFICATION: '/auth/request-verification',
+    VERIFY_EMAIL: '/auth/verify-email',
     
     // Users
     USER_PROFILE: '/users/profile',
@@ -120,4 +122,8 @@ export const API_ENDPOINTS = {
     WISHLIST: '/wishlist',
     WISHLIST_ITEM: (id: number) => `/wishlist/${id}`,
     CHECK_WISHLIST: (id: number) => `/wishlist/check/${id}`,
+
+    // Business Settings
+    BUSINESS_SETTINGS: '/business-settings',
+    UPDATE_BUSINESS_SETTINGS: '/business-settings'
 };

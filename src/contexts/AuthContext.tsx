@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { login as loginService, register as registerService, logout as logoutService } from '../services/auth';
+import { login as loginService, register as registerService, logout as logoutService, refreshToken as refreshTokenService } from '../services/auth';
 
 interface User {
   userId: string;
@@ -9,6 +9,12 @@ interface User {
   email: string;
   role: 'customer' | 'admin';
   phone?: string;
+  emailVerified: boolean;
+  driverLicense?: string;
+  dateOfBirth?: string;
+  lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface AuthContextType {
@@ -32,28 +38,97 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const accessToken = localStorage.getItem('accessToken');
-    const storedUser = localStorage.getItem('user');
+  // Function to check token expiration
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.exp * 1000 < Date.now();
+    } catch {
+      return true;
+    }
+  };
 
-    if (accessToken && storedUser) {
+  // Function to handle token refresh
+  const handleTokenRefresh = async () => {
+    try {
+      const success = await refreshTokenService();
+      if (!success) {
+        // If refresh failed, clear auth state
+        setUser(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      }
+      return success;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      return false;
+    }
+  };
+
+  // Initialize auth state
+  useEffect(() => {
+    const initializeAuth = async () => {
       try {
+        const accessToken = localStorage.getItem('accessToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+        const storedUser = localStorage.getItem('user');
+
+        if (!accessToken || !refreshToken || !storedUser) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if access token is expired
+        if (isTokenExpired(accessToken)) {
+          console.log('Access token expired, attempting refresh');
+          const refreshSuccess = await handleTokenRefresh();
+          if (!refreshSuccess) {
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Parse and set user data
         const parsedUser = JSON.parse(storedUser);
         setUser({
           ...parsedUser,
           name: `${parsedUser.firstName} ${parsedUser.lastName}`
         });
-      } catch {
+      } catch (error) {
+        console.error('Auth initialization error:', error);
         // Clear invalid data
         localStorage.removeItem('user');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    initializeAuth();
   }, []);
+
+  // Set up periodic token refresh
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshInterval = setInterval(async () => {
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken && isTokenExpired(accessToken)) {
+        console.log('Refreshing token...');
+        const success = await handleTokenRefresh();
+        if (!success) {
+          clearInterval(refreshInterval);
+        }
+      }
+    }, 4 * 60 * 1000); // Check every 4 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [user]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);

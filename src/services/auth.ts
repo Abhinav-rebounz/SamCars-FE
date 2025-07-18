@@ -3,30 +3,43 @@ import { AxiosError } from 'axios';
 
 interface AuthResponse {
   status: 'success' | 'error';
+  message: string;
   data?: {
     user: {
-      userId: string;
+      userId: string | number;
       email: string;
       firstName: string;
       lastName: string;
+      phone?: string;
+      driverLicense?: string;
+      dateOfBirth?: string;
       role: 'customer' | 'admin';
+      emailVerified: boolean;
+      lastLogin?: string;
+      createdAt?: string;
+      updatedAt?: string;
     };
     accessToken: string;
     refreshToken: string;
   };
-  message?: string;
 }
 
 interface ProfileResponse {
   status: 'success' | 'error';
   data?: {
     user: {
-      userId: string;
+      userId: string | number;
       email: string;
       firstName: string;
       lastName: string;
       phone?: string;
+      driverLicense?: string;
+      dateOfBirth?: string;
       role: 'customer' | 'admin';
+      emailVerified: boolean;
+      lastLogin?: string;
+      createdAt?: string;
+      updatedAt?: string;
     };
   };
   message?: string;
@@ -125,18 +138,28 @@ export const updateProfile = async (profileData: {
   firstName: string;
   lastName: string;
   phone?: string;
+  driverLicense?: string;
+  dateOfBirth?: string;
 }) => {
   try {
+    console.log('Updating profile with data:', profileData);
     const response = await api.put<ProfileResponse>(API_ENDPOINTS.UPDATE_PROFILE, profileData);
+    console.log('Profile update response:', response.data);
 
     if (response.data.status === 'success' && response.data.data?.user) {
       const { user } = response.data.data;
       
+      // Get existing user data
+      const existingUser = JSON.parse(localStorage.getItem('user') || '{}');
+      
       // Update stored user data
       const updatedUser = {
+        ...existingUser,
         ...user,
         name: `${user.firstName} ${user.lastName}`
       };
+      
+      console.log('Updating local storage with:', updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
       return { 
@@ -147,6 +170,7 @@ export const updateProfile = async (profileData: {
     
     throw new Error(response.data.message || 'Failed to update profile');
   } catch (error) {
+    console.error('Profile update error:', error);
     const axiosError = error as AxiosError<ErrorResponse>;
     return {
       success: false,
@@ -224,6 +248,75 @@ export const resetPassword = async (token: string, newPassword: string) => {
     return {
       success: false,
       message: axiosError.response?.data?.message || 'Failed to reset password'
+    };
+  }
+};
+
+export const fetchUserProfile = async () => {
+  try {
+    const response = await api.get<ProfileResponse>(API_ENDPOINTS.USER_PROFILE);
+    console.log('Fetched user profile:', response.data);
+
+    if (response.data.status === 'success' && response.data.data?.user) {
+      const { user } = response.data.data;
+      
+      // Get existing user data
+      const existingUser = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      // Update stored user data
+      const updatedUser = {
+        ...existingUser,
+        ...user,
+        name: `${user.firstName} ${user.lastName}`
+      };
+      
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      return { 
+        success: true, 
+        user: updatedUser
+      };
+    }
+    
+    throw new Error(response.data.message || 'Failed to fetch profile');
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    const axiosError = error as AxiosError<ErrorResponse>;
+    return {
+      success: false,
+      error: axiosError.response?.data?.message || 'Failed to fetch profile'
+    };
+  }
+};
+
+export const requestEmailVerification = async () => {
+  try {
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.REQUEST_VERIFICATION);
+    return { 
+      success: response.data.status === 'success',
+      message: response.data.message
+    };
+  } catch (error) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    return {
+      success: false,
+      message: axiosError.response?.data?.message || 'Failed to send verification email'
+    };
+  }
+};
+
+export const verifyEmail = async (token: string) => {
+  try {
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.VERIFY_EMAIL, { token });
+    return { 
+      success: response.data.status === 'success',
+      message: response.data.message
+    };
+  } catch (error) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    return {
+      success: false,
+      message: axiosError.response?.data?.message || 'Failed to verify email'
     };
   }
 };

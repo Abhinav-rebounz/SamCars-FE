@@ -98,7 +98,7 @@ const InventoryPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
+          {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="animate-pulse">
                   <div className="aspect-[16/10] bg-gray-200" />
@@ -114,7 +114,7 @@ const InventoryPage: React.FC = () => {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
         </div>
       </div>
     );
@@ -144,8 +144,8 @@ const InventoryPage: React.FC = () => {
           <div className="border-l-4 border-blue-600 pl-4">
             <h1 className="text-3xl font-bold text-gray-900">Our Inventory</h1>
             <p className="mt-2 text-gray-600">
-              Browse our selection of quality pre-owned vehicles.
-            </p>
+          Browse our selection of quality pre-owned vehicles.
+        </p>
           </div>
         </div>
 
@@ -159,18 +159,18 @@ const InventoryPage: React.FC = () => {
                     <Filter className="w-5 h-5 text-blue-600" />
                     Filters
                   </h2>
-                  <button 
-                    onClick={resetFilters}
+              <button 
+                onClick={resetFilters}
                     className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                  >
+              >
                     Reset All
-                  </button>
+              </button>
                 </div>
               </div>
 
               <div className="p-4 space-y-6">
                 {/* Category Filter */}
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category
                   </label>
@@ -202,10 +202,10 @@ const InventoryPage: React.FC = () => {
                       <option value="" disabled>No categories available</option>
                     )}
                   </select>
-                </div>
+              </div>
 
                 {/* Search */}
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Search
                   </label>
@@ -217,17 +217,17 @@ const InventoryPage: React.FC = () => {
                     onChange={handleFilterChange}
                     className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   />
-                </div>
+              </div>
 
                 {/* Sort By */}
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sort By
                   </label>
-                  <select
+                <select 
                     name="sort_by"
                     value={filters.sort_by}
-                    onChange={handleFilterChange}
+                  onChange={handleFilterChange}
                     className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   >
                     <option value="date_added">Newest Arrivals</option>
@@ -235,30 +235,30 @@ const InventoryPage: React.FC = () => {
                     <option value="year">Year</option>
                     <option value="mileage">Mileage</option>
                     <option value="make">Make</option>
-                  </select>
-                </div>
+                </select>
+              </div>
 
                 {/* Sort Order */}
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sort Order
                   </label>
-                  <select
+                <select 
                     name="sort_order"
                     value={filters.sort_order}
-                    onChange={handleFilterChange}
+                  onChange={handleFilterChange}
                     className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   >
                     <option value="desc">High to Low</option>
                     <option value="asc">Low to High</option>
-                  </select>
-                </div>
+                </select>
+              </div>
 
                 {/* Status */}
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status
-                  </label>
+                    </label>
                   <select
                     name="status"
                     value={filters.status}
@@ -306,27 +306,27 @@ const InventoryPage: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {vehicles.map(vehicle => (
-                    <VehicleCard
-                      key={vehicle.id}
-                      id={vehicle.id}
-                      make={vehicle.make}
-                      model={vehicle.model}
-                      year={vehicle.year}
-                      price={vehicle.price}
-                      mileage={vehicle.mileage}
-                      image={vehicle.images[0]}
-                      condition={vehicle.condition}
-                      tags={vehicle.tags}
-                    />
-                  ))}
-                </div>
+                  <VehicleCard
+                    key={vehicle.id}
+                    id={vehicle.id}
+                    make={vehicle.make}
+                    model={vehicle.model}
+                    year={vehicle.year}
+                    price={vehicle.price}
+                    mileage={vehicle.mileage}
+                    image={vehicle.images[0]}
+                    condition={vehicle.condition}
+                    tags={vehicle.tags}
+                  />
+                ))}
+              </div>
 
                 {/* Pagination */}
                 {pagination && pagination.total_pages > 1 && (
                   <div className="mt-8 flex justify-center items-center gap-2">
-                    <button
+        <button
                       onClick={() => handlePageChange(pagination.current_page - 1)}
                       disabled={!pagination.has_previous}
                       className={`p-2 rounded-lg border ${
@@ -336,11 +336,11 @@ const InventoryPage: React.FC = () => {
                       }`}
                     >
                       <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    
+        </button>
+
                     <div className="flex items-center gap-1">
                       {[...Array(pagination.total_pages)].map((_, i) => (
-                        <button
+                <button 
                           key={i}
                           onClick={() => handlePageChange(i + 1)}
                           className={`min-w-[2.5rem] h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
@@ -350,11 +350,11 @@ const InventoryPage: React.FC = () => {
                           }`}
                         >
                           {i + 1}
-                        </button>
+                </button>
                       ))}
                     </div>
 
-                    <button
+                <button
                       onClick={() => handlePageChange(pagination.current_page + 1)}
                       disabled={!pagination.has_next}
                       className={`p-2 rounded-lg border ${
@@ -364,8 +364,8 @@ const InventoryPage: React.FC = () => {
                       }`}
                     >
                       <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
+                </button>
+              </div>
                 )}
               </>
             )}
