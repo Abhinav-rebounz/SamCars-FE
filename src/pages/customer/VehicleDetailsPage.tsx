@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import VehicleActions from '../../components/vehicle/VehicleActions';
 import VehicleImageGallery from '../../components/vehicle/VehicleImageGallery';
 import { getVehicleById } from '../../services/vehicle';
+import { checkWishlist } from '../../services/wishlist';
 
 interface Vehicle {
   id: number;
@@ -42,6 +43,7 @@ const VehicleDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, user } = useAuth();
+  const [isInWishlist, setIsInWishlist] = useState(false);
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showTestDriveForm, setShowTestDriveForm] = useState(false);
@@ -63,6 +65,12 @@ const VehicleDetailsPage: React.FC = () => {
         const response = await getVehicleById(id);
         if (response.success && response.vehicle) {
           setVehicle(response.vehicle as unknown as Vehicle);
+          
+          // Check if vehicle is in user's wishlist
+          if (isAuthenticated) {
+            const wishlistStatus = await checkWishlist(id);
+            setIsInWishlist(wishlistStatus.isInWishlist);
+          }
         } else {
           setError(response.error || 'Failed to fetch vehicle details');
         }
@@ -73,7 +81,7 @@ const VehicleDetailsPage: React.FC = () => {
       }
     };
     fetchVehicle();
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   const handleImageError = (index: number) => {
     setImageErrors(prev => new Set(prev).add(index));
@@ -91,7 +99,7 @@ const VehicleDetailsPage: React.FC = () => {
     if (!vehicle?.images) return;
     const imagesLength = vehicle.images.length;
     setCurrentImageIndex((prev) => 
-      prev === 0 ? imagesLength - 1 : prev - 1
+      prev === 0 ? imagesLength - 1 : prev + 1
     );
   };
   
@@ -102,48 +110,6 @@ const VehicleDetailsPage: React.FC = () => {
       setShowTestDriveForm(false);
       setTestDriveSubmitted(false);
     }, 3000);
-  };
-  
-  const handleAddToWishlist = () => {
-    alert('Vehicle added to wishlist!');
-  };
-  
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-        text: `Check out this ${vehicle.year} ${vehicle.make} ${vehicle.model} at Sam Cars!`,
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Share URL copied to clipboard!');
-    }
-  };
-
-  const handleHoldVehicle = async () => {
-    if (!vehicle) return;
-
-    if (!isAuthenticated || !user) {
-      alert('Please log in to hold this vehicle.');
-      return;
-    }
-  
-    try {
-      const { data } = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
-        vehicle_id: vehicle.id,
-        user_id: user.userId // Changed to match the User type
-      });
-  
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('Failed to initiate payment.');
-      }
-    } catch (error) {
-      console.error('Payment initiation error:', error);
-      alert('Error initiating payment.');
-    }
   };
 
   if (loading) {
@@ -216,6 +182,10 @@ const VehicleDetailsPage: React.FC = () => {
                     <dt className="text-sm font-medium text-gray-500">Mileage</dt>
                     <dd className="text-sm font-semibold text-gray-900">{vehicle?.mileage.toLocaleString()} miles</dd>
                   </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">VIN</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.vin}</dd>
+                  </div>
                   {vehicle?.created_at && (
                     <div className="flex justify-between items-center py-2">
                       <dt className="text-sm font-medium text-gray-500">Listed On</dt>
@@ -250,6 +220,18 @@ const VehicleDetailsPage: React.FC = () => {
                   <div className="flex justify-between items-center py-2 border-b border-gray-100">
                     <dt className="text-sm font-medium text-gray-500">Interior Color</dt>
                     <dd className="text-sm font-semibold text-gray-900">{vehicle?.interior_color}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Engine</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.engine}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Body Type</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.body_type}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Condition</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.condition}</dd>
                   </div>
                 </dl>
               </div>
@@ -291,11 +273,11 @@ const VehicleDetailsPage: React.FC = () => {
           <div className="lg:col-span-1">
             {vehicle && (
               <VehicleActions
-                vehicleId={vehicle.id}
-                price={vehicle.price}
+                vehicleId={id || ''}
+                price={parseFloat(vehicle.price)}
+                isAvailable={vehicle.available}
                 carfaxLink={vehicle.carfax_link}
-                status={vehicle.status}
-                available={vehicle.available}
+                isInWishlist={isInWishlist}
               />
             )}
           </div>

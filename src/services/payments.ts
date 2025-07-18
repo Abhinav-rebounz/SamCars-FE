@@ -5,19 +5,34 @@ interface CheckoutSession {
   sessionId: string;
 }
 
-export const createCheckoutSession = async (vehicleId: string): Promise<CheckoutSession> => {
+interface CreateCheckoutSessionParams {
+  vehicleId: string;
+  userId: string;
+  amount?: number;
+  type?: 'purchase' | 'hold';
+}
+
+export const createCheckoutSession = async ({
+  vehicleId,
+  userId,
+  amount,
+  type = 'purchase'
+}: CreateCheckoutSessionParams): Promise<CheckoutSession> => {
   try {
     const response = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
-      vehicleId
+      vehicle_id: vehicleId,
+      user_id: userId,
+      amount,
+      type
     });
     
-    if (!response.data?.data?.url) {
+    if (!response.data?.url) {
       throw new Error('Invalid response from server');
     }
     
     return {
-      url: response.data.data.url,
-      sessionId: response.data.data.sessionId
+      url: response.data.url,
+      sessionId: response.data.sessionId
     };
   } catch (error) {
     console.error('Error creating checkout session:', error);
