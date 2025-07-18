@@ -129,7 +129,7 @@ export const updateProfile = async (profileData: {
   try {
     const response = await api.put<ProfileResponse>(API_ENDPOINTS.UPDATE_PROFILE, profileData);
 
-    if (response.data.status === 'success' && response.data.data) {
+    if (response.data.status === 'success' && response.data.data?.user) {
       const { user } = response.data.data;
       
       // Update stored user data

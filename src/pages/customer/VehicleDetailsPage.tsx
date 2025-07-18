@@ -1,25 +1,11 @@
-import { loadStripe } from '@stripe/stripe-js';
-import {
-  ArrowLeft,
-  Calendar,
-  Car,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Cog,
-  FileText,
-  Fuel,
-  Gauge,
-  Heart,
-  Share
-} from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
+import VehicleActions from '../../components/vehicle/VehicleActions';
+import VehicleImageGallery from '../../components/vehicle/VehicleImageGallery';
 import { getVehicleById } from '../../services/vehicle';
-
-const stripePromise = loadStripe('your-publishable-key-here');
 
 interface Vehicle {
   id: number;
@@ -44,6 +30,10 @@ interface Vehicle {
   images: string[];
   features: string[];
   tags: string[];
+  stock_number?: string;
+  location?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const VehicleDetailsPage: React.FC = () => {
@@ -53,22 +43,12 @@ const VehicleDetailsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, user } = useAuth();
   
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showTestDriveForm, setShowTestDriveForm] = useState(false);
   const [testDriveDate, setTestDriveDate] = useState('');
   const [testDriveTime, setTestDriveTime] = useState('');
   const [testDriveSubmitted, setTestDriveSubmitted] = useState(false);
-
-  // --- Zoom state ---
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - left) / width) * 100;  // percentage
-    const y = ((e.clientY - top) / height) * 100;  // percentage
-    setCursorPos({ x, y });
-  };
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -94,32 +74,24 @@ const VehicleDetailsPage: React.FC = () => {
     };
     fetchVehicle();
   }, [id]);
-  
-  if (loading) {
-    return <div className="container-custom py-16 text-center">Loading vehicle details...</div>;
-  }
-  
-  if (error || !vehicle) {
-    return (
-      <div className="container-custom py-16 text-center">
-        <h1 className="heading-lg mb-4">Vehicle Not Found</h1>
-        <p className="text-gray-600 mb-8">{error || "The vehicle you're looking for doesn't exist or has been removed."}</p>
-        <Link to="/inventory" className="btn-primary">
-          Back to Inventory
-        </Link>
-      </div>
-    );
-  }
-  
-  const handleNextImage = () => {
-    setActiveImageIndex((prevIndex) => 
-      prevIndex === vehicle.images.length - 1 ? 0 : prevIndex + 1
+
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => new Set(prev).add(index));
+  };
+
+  const nextImage = () => {
+    if (!vehicle?.images) return;
+    const imagesLength = vehicle.images.length;
+    setCurrentImageIndex((prev) => 
+      prev === imagesLength - 1 ? 0 : prev + 1
     );
   };
-  
-  const handlePrevImage = () => {
-    setActiveImageIndex((prevIndex) => 
-      prevIndex === 0 ? vehicle.images.length - 1 : prevIndex - 1
+
+  const previousImage = () => {
+    if (!vehicle?.images) return;
+    const imagesLength = vehicle.images.length;
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? imagesLength - 1 : prev - 1
     );
   };
   
@@ -160,7 +132,7 @@ const VehicleDetailsPage: React.FC = () => {
     try {
       const { data } = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
         vehicle_id: vehicle.id,
-        user_id: user.id
+        user_id: user.userId // Changed to match the User type
       });
   
       if (data.url) {
@@ -174,331 +146,158 @@ const VehicleDetailsPage: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading vehicle details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !vehicle) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error || 'Vehicle not found'}</p>
+          <Link
+            to="/inventory"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Back to Inventory
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const price = parseFloat(vehicle.price);
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-12">
-      {/* Breadcrumb */}
-      <div className="bg-white shadow-sm">
-        <div className="container-custom py-4">
-          <div className="flex items-center text-sm">
-            <Link to="/" className="text-gray-500 hover:text-blue-700">Home</Link>
-            <span className="mx-2 text-gray-400">/</span>
-            <Link to="/inventory" className="text-gray-500 hover:text-blue-700">Inventory</Link>
-            <span className="mx-2 text-gray-400">/</span>
-            <span className="text-gray-700">{vehicle.year} {vehicle.make} {vehicle.model}</span>
-          </div>
-        </div>
-      </div>
-      
-      <div className="container-custom pt-8">
-        {/* Back Button */}
-        <Link to="/inventory" className="inline-flex items-center text-blue-700 hover:text-blue-800 mb-4">
-          <ArrowLeft className="h-4 w-4 mr-1" />
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Link to="/inventory" className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-6">
+          <ArrowLeft className="w-5 h-5 mr-2" />
           Back to Inventory
         </Link>
-        
-        {/* Vehicle Title */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <h1 className="heading-lg mb-2 md:mb-0">
-            {vehicle.year} {vehicle.make} {vehicle.model}
-          </h1>
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={handleAddToWishlist}
-              className="text-gray-700 hover:text-red-500 flex items-center"
-            >
-              <Heart className="h-5 w-5 mr-1" />
-              <span className="hidden sm:inline">Wishlist</span>
-            </button>
-            <button 
-              onClick={handleShare}
-              className="text-gray-700 hover:text-blue-700 flex items-center"
-            >
-              <Share className="h-5 w-5 mr-1" />
-              <span className="hidden sm:inline">Share</span>
-            </button>
-          </div>
-        </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Images */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-              {/* Main Image with Zoom */}
-              <div
-                className="relative overflow-hidden"
-                onMouseEnter={() => setIsZoomed(true)}
-                onMouseLeave={() => setIsZoomed(false)}
-                onMouseMove={handleMouseMove}
-                style={{ height: '384px' }} // h-96 = 24rem = 384px
-              >
-                <img
-                  src={vehicle.images[activeImageIndex]}
-                  alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
-                  className="w-full h-full object-contain transition-transform duration-300 ease-out"
-                  style={{
-                    transformOrigin: `${cursorPos.x}% ${cursorPos.y}%`,
-                    transform: isZoomed ? 'scale(2)' : 'scale(1)',
-                    cursor: isZoomed ? 'zoom-out' : 'zoom-in',
-                  }}
-                />
-              </div>
-              
-              {/* Image Navigation */}
-              {vehicle.images.length > 1 && (
-                <>
-                  <button 
-                    onClick={handlePrevImage}
-                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 rounded-full p-2 hover:bg-opacity-100 transition-all"
-                    style={{ zIndex: 10 }}
-                  >
-                    <ChevronLeft className="h-6 w-6 text-gray-800" />
-                  </button>
-                  <button 
-                    onClick={handleNextImage}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 rounded-full p-2 hover:bg-opacity-100 transition-all"
-                    style={{ zIndex: 10 }}
-                  >
-                    <ChevronRight className="h-6 w-6 text-gray-800" />
-                  </button>
-                  
-                  {/* Image Counter */}
-                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-sm px-2 py-1 rounded" style={{ zIndex: 10 }}>
-                    {activeImageIndex + 1} / {vehicle.images.length}
-                  </div>
-                </>
-              )}
-              
-              {/* Thumbnail Images */}
-              {vehicle.images.length > 1 && (
-                <div className="flex p-2 overflow-x-auto">
-                  {vehicle.images.map((image: string, index: number) => (
-                    <div 
-                      key={index}
-                      className={`w-24 h-16 flex-shrink-0 mx-1 cursor-pointer ${
-                        index === activeImageIndex ? 'ring-2 ring-blue-700' : ''
-                      }`}
-                      onClick={() => setActiveImageIndex(index)}
-                    >
-                      <img 
-                        src={image} 
-                        alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} thumbnail ${index + 1}`} 
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Vehicle Details */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h2 className="text-xl font-semibold mb-4">Vehicle Details</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="flex items-start">
-                  <Calendar className="h-5 w-5 text-blue-700 mt-0.5 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">Year</p>
-                    <p className="font-medium">{vehicle.year}</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <Gauge className="h-5 w-5 text-blue-700 mt-0.5 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">Mileage</p>
-                    <p className="font-medium">{vehicle.mileage.toLocaleString()} miles</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <Fuel className="h-5 w-5 text-blue-700 mt-0.5 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">Fuel Type</p>
-                    <p className="font-medium">{vehicle.fuel_type}</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <Cog className="h-5 w-5 text-blue-700 mt-0.5 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">Transmission</p>
-                    <p className="font-medium">
-                      {vehicle.transmission === 'manual' ? 'Manual' : 
-                       vehicle.transmission === 'automatic' ? 'Automatic' : 
-                       vehicle.transmission}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <Car className="h-5 w-5 text-blue-700 mt-0.5 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">Body Type</p>
-                    <p className="font-medium">{vehicle.body_type}</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <FileText className="h-5 w-5 text-blue-700 mt-0.5 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">VIN</p>
-                    <p className="font-medium">{vehicle.vin}</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <div className="h-5 w-5 text-blue-700 mt-0.5 mr-2 flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: vehicle.exterior_color }} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Exterior Color</p>
-                    <p className="font-medium">{vehicle.exterior_color}</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <div className="h-5 w-5 text-blue-700 mt-0.5 mr-2 flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: vehicle.interior_color }} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Interior Color</p>
-                    <p className="font-medium">{vehicle.interior_color}</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <div className="h-5 w-5 text-blue-700 mt-0.5 mr-2 flex items-center justify-center">
-                    <Check className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Condition</p>
-                    <p className="font-medium capitalize">{vehicle.condition}</p>
-                  </div>
-                </div>
-                {vehicle.engine && (
-                  <div className="flex items-start">
-                    <Cog className="h-5 w-5 text-blue-700 mt-0.5 mr-2" />
-                    <div>
-                      <p className="text-sm text-gray-500">Engine</p>
-                      <p className="font-medium">{vehicle.engine}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="border-t border-gray-200 pt-4">
-                <h3 className="font-semibold mb-2">Description</h3>
-                <p className="text-gray-700 mb-4">
-                  {vehicle.description || 'No description available for this vehicle.'}
-                </p>
-                
-                {vehicle.features.length > 0 && (
-                  <>
-                    <h3 className="font-semibold mb-2">Features</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {vehicle.features.map((feature: string, index: number) => (
-                        <div key={index} className="flex items-center">
-                          <Check className="h-4 w-4 text-green-600 mr-2" />
-                          <span className="text-gray-700">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Right Column - Price and Actions */}
-          <div>
-            {/* Price Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-blue-700">
-                  ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {/* Main Content - Takes up 2 columns */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Image Gallery Section */}
+            {vehicle && (
+              <VehicleImageGallery
+                images={vehicle?.images || []}
+                make={vehicle?.make || ''}
+                model={vehicle?.model || ''}
+              />
+            )}
+
+            {/* Basic Vehicle Details Section */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="border-l-4 border-blue-600 pl-4 py-4 bg-white">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {vehicle && `${vehicle.year} ${vehicle.make} ${vehicle.model}`}
                 </h2>
-                {vehicle.tags.includes('New Arrival') && (
-                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                    New Arrival
-                  </span>
-                )}
               </div>
-              
-              <div className="space-y-4">
-                <button 
-                  onClick={() => setShowTestDriveForm(!showTestDriveForm)}
-                  className="btn-primary w-full"
-                >
-                  Book Test Drive
-                </button>
-                
-                <button 
-                  onClick={handleHoldVehicle}
-                  className="btn-secondary w-full"
-                >
-                  Make a Payment to Hold
-                </button>
-                
-                {vehicle.carfax_link && (
-                  <a 
-                    href={vehicle.carfax_link} 
-                    className="btn-outline w-full block text-center"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View CARFAX Report
-                  </a>
-                )}
-              </div>
-              
-              {/* Test Drive Form */}
-              {showTestDriveForm && (
-                <div className="mt-6 border-t border-gray-200 pt-4">
-                  <h3 className="font-semibold mb-4">Schedule Test Drive</h3>
-                  
-                  {testDriveSubmitted ? (
-                    <div className="bg-green-50 text-green-700 p-3 rounded">
-                      Test drive scheduled successfully! We'll contact you to confirm.
+              <div className="p-6">
+                <dl className="space-y-2">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Stock Number</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.stock_number}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Location</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.location}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Mileage</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.mileage.toLocaleString()} miles</dd>
+                  </div>
+                  {vehicle?.created_at && (
+                    <div className="flex justify-between items-center py-2">
+                      <dt className="text-sm font-medium text-gray-500">Listed On</dt>
+                      <dd className="text-sm font-semibold text-gray-900">
+                        {new Date(vehicle.created_at).toLocaleDateString()}
+                      </dd>
                     </div>
-                  ) : (
-                    <form onSubmit={handleTestDriveSubmit}>
-                      {!isAuthenticated && (
-                        <p className="mb-3 text-red-600 text-sm">Please login to schedule a test drive.</p>
-                      )}
-                      
-                      <label className="block mb-2 font-medium" htmlFor="date">
-                        Date
-                      </label>
-                      <input 
-                        type="date"
-                        id="date"
-                        value={testDriveDate}
-                        onChange={e => setTestDriveDate(e.target.value)}
-                        required
-                        className="w-full border border-gray-300 rounded p-2 mb-4"
-                        disabled={!isAuthenticated}
-                      />
-                      
-                      <label className="block mb-2 font-medium" htmlFor="time">
-                        Time
-                      </label>
-                      <input 
-                        type="time"
-                        id="time"
-                        value={testDriveTime}
-                        onChange={e => setTestDriveTime(e.target.value)}
-                        required
-                        className="w-full border border-gray-300 rounded p-2 mb-4"
-                        disabled={!isAuthenticated}
-                      />
-                      
-                      <button 
-                        type="submit"
-                        className="btn-primary w-full"
-                        disabled={!isAuthenticated}
-                      >
-                        Submit
-                      </button>
-                    </form>
                   )}
-                </div>
-              )}
+                </dl>
+              </div>
             </div>
+
+            {/* Technical Details Section */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="border-l-4 border-blue-600 pl-4 py-4">
+                <h2 className="text-xl font-semibold text-gray-900">Technical Details</h2>
+              </div>
+              <div className="p-6">
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Transmission</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.transmission}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Fuel Type</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.fuel_type}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Exterior Color</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.exterior_color}</dd>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Interior Color</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle?.interior_color}</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+
+            {/* Description Section */}
+            {vehicle?.description && (
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="border-l-4 border-blue-600 pl-4 py-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Description</h2>
+                </div>
+                <div className="p-6">
+                  <p className="text-gray-700 whitespace-pre-wrap">{vehicle.description}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Features Section */}
+            {vehicle?.features && vehicle.features.length > 0 && (
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="border-l-4 border-blue-600 pl-4 py-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Features</h2>
+                </div>
+                <div className="p-6">
+                  <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {vehicle.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2 text-gray-700">
+                        <Check className="w-5 h-5 text-green-500" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar - Takes up 1 column */}
+          <div className="lg:col-span-1">
+            {vehicle && (
+              <VehicleActions
+                vehicleId={vehicle.id}
+                price={vehicle.price}
+                carfaxLink={vehicle.carfax_link}
+                status={vehicle.status}
+                available={vehicle.available}
+              />
+            )}
           </div>
         </div>
       </div>

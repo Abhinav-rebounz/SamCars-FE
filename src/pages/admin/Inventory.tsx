@@ -15,6 +15,7 @@ import { API_BASE_URL, API_ENDPOINTS, api } from '../../config/api';
 import { getInventory, deleteVehicle } from '../../services/inventory';
 import { Vehicle as VehicleType } from '../../types/vehicle';
 import AddVehicleForm from '../../components/inventory/AddVehicleForm';
+import useDebounce from '../../hooks/useDebounce';
 
 type Vehicle = VehicleType;
 
@@ -30,7 +31,7 @@ interface Pagination {
 
 const Inventory: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [sortField, setSortField] = useState('date_added');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -47,6 +48,9 @@ const Inventory: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
 
+  // Debounce search term
+  const debouncedSearch = useDebounce(searchInput, 500);
+
   const navigate = useNavigate();
 
   // Fetch vehicles from API
@@ -55,7 +59,7 @@ const Inventory: React.FC = () => {
     setError(null);
     try {
       const filters = {
-        search: searchTerm,
+        search: debouncedSearch,
         sort_by: sortField,
         sort_order: sortDirection,
         page: currentPage,
@@ -76,15 +80,15 @@ const Inventory: React.FC = () => {
     }
   };
 
-  // Fetch vehicles on mount and when dependencies change
+  // Fetch vehicles when dependencies change
   useEffect(() => {
     fetchVehicles();
-  }, [searchTerm, sortField, sortDirection, currentPage, itemsPerPage, filterStatus]);
+  }, [debouncedSearch, sortField, sortDirection, currentPage, itemsPerPage, filterStatus]);
 
   // Filter and sort vehicles (client-side fallback)
   const filteredVehicles = vehicles.filter(vehicle => {
     const searchString = `${vehicle.make} ${vehicle.model} ${vehicle.year} ${vehicle.vin}`.toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    return searchString.includes(searchInput.toLowerCase());
   });
 
   const sortedVehicles = [...filteredVehicles].sort((a, b) => {
@@ -252,8 +256,8 @@ const Inventory: React.FC = () => {
               <input
                 type="text"
                 placeholder="Search vehicles by name or VIN..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
             </div>

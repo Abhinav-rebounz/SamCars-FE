@@ -3,6 +3,7 @@ import { Filter, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-rea
 import VehicleCard from '../../components/VehicleCard';
 import { getInventory, type InventoryFilters, type PaginationInfo, type FilterStats } from '../../services/inventory';
 import { Vehicle as VehicleType } from '../../types/vehicle';
+import useDebounce from '../../hooks/useDebounce';
 
 interface Vehicle extends VehicleType {
   // Add any additional properties that might be returned from the backend
@@ -15,6 +16,7 @@ const InventoryPage: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   
   const [filters, setFilters] = useState<InventoryFilters>({
     category: 'all',
@@ -25,6 +27,14 @@ const InventoryPage: React.FC = () => {
     sort_order: 'desc',
     status: 'available'
   });
+
+  // Debounce search term
+  const debouncedSearch = useDebounce(searchInput, 500);
+
+  // Update filters when debounced search changes
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, search: debouncedSearch, page: 1 }));
+  }, [debouncedSearch]);
 
   // Fetch vehicles from API
   useEffect(() => {
@@ -56,7 +66,11 @@ const InventoryPage: React.FC = () => {
   // Handle filter changes
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value, page: 1 })); // Reset to page 1 when filters change
+    if (name === 'search') {
+      setSearchInput(value);
+    } else {
+      setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
+    }
   };
 
   // Handle page change
@@ -81,18 +95,26 @@ const InventoryPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="space-y-4 w-full max-w-3xl mx-auto">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="animate-pulse flex space-x-4 p-4 bg-gray-100 rounded">
-              <div className="rounded bg-gray-300 h-32 w-48" />
-              <div className="flex-1 space-y-2 py-1">
-                <div className="h-6 bg-gray-300 rounded w-1/2" />
-                <div className="h-4 bg-gray-200 rounded w-1/3" />
-                <div className="h-4 bg-gray-200 rounded w-1/4" />
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="animate-pulse">
+                  <div className="aspect-[16/10] bg-gray-200" />
+                  <div className="p-4 space-y-4">
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-6 bg-gray-200 rounded w-1/2" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="h-4 bg-gray-200 rounded" />
+                      <div className="h-4 bg-gray-200 rounded" />
+                    </div>
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -100,125 +122,187 @@ const InventoryPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-red-500">{error}</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl text-red-600 mb-2">{error}</p>
+          <button
+            onClick={resetFilters}
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Reset Filters
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="container-custom py-8">
-        <h1 className="heading-lg mb-2">Our Inventory</h1>
-        <p className="text-gray-600 mb-8">
-          Browse our selection of quality pre-owned vehicles.
-        </p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="border-l-4 border-blue-600 pl-4">
+            <h1 className="text-3xl font-bold text-gray-900">Our Inventory</h1>
+            <p className="mt-2 text-gray-600">
+              Browse our selection of quality pre-owned vehicles.
+            </p>
+          </div>
+        </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters - Desktop */}
-          <div className="hidden lg:block w-64 bg-white rounded-lg shadow-md p-4 h-fit">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-lg">Filters</h2>
-              <button 
-                onClick={resetFilters}
-                className="text-sm text-blue-700 hover:text-blue-800"
-              >
-                Reset
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Category Filter */}
-              <div>
-                <label className="form-label">Category</label>
-                <select 
-                  name="category" 
-                  value={filters.category}
-                  onChange={handleFilterChange}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="sedan">Sedan ({filterStats?.categories.sedan || 0})</option>
-                  <option value="suv">SUV ({filterStats?.categories.suv || 0})</option>
-                  <option value="truck">Truck ({filterStats?.categories.truck || 0})</option>
-                  <option value="electric">Electric ({filterStats?.categories.electric || 0})</option>
-                  <option value="luxury">Luxury ({filterStats?.categories.luxury || 0})</option>
-                  <option value="compact">Compact ({filterStats?.categories.compact || 0})</option>
-                </select>
+          <div className="hidden lg:block w-72 flex-shrink-0">
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="border-b border-gray-100">
+                <div className="p-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-blue-600" />
+                    Filters
+                  </h2>
+                  <button 
+                    onClick={resetFilters}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Reset All
+                  </button>
+                </div>
               </div>
 
-              {/* Search */}
-              <div>
-                <label className="form-label">Search</label>
-                <input
-                  type="text"
-                  name="search"
-                  placeholder="Search by make, model, or year"
-                  value={filters.search}
-                  onChange={handleFilterChange}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                />
-              </div>
+              <div className="p-4 space-y-6">
+                {/* Category Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <select 
+                    name="category" 
+                    value={filters.category}
+                    onChange={handleFilterChange}
+                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  >
+                    <option value="all">All Categories ({filterStats?.total_available || 0})</option>
+                    {filterStats?.categories && Object.entries(filterStats.categories)
+                      .filter(([_, count]) => count > 0)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([category, count]) => {
+                        // Format category name for display
+                        const displayName = category
+                          .split('_')
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ');
+                        
+                        return (
+                          <option key={category} value={category}>
+                            {displayName} ({count})
+                          </option>
+                        );
+                      })
+                    }
+                    {(!filterStats?.categories || Object.keys(filterStats.categories).length === 0) && (
+                      <option value="" disabled>No categories available</option>
+                    )}
+                  </select>
+                </div>
 
-              {/* Sort By */}
-              <div>
-                <label className="form-label">Sort By</label>
-                <select
-                  name="sort_by"
-                  value={filters.sort_by}
-                  onChange={handleFilterChange}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                >
-                  <option value="date_added">Newest Arrivals</option>
-                  <option value="price">Price</option>
-                  <option value="year">Year</option>
-                  <option value="mileage">Mileage</option>
-                  <option value="make">Make</option>
-                </select>
-              </div>
+                {/* Search */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    name="search"
+                    placeholder="Search make, model, or year"
+                    value={searchInput}
+                    onChange={handleFilterChange}
+                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                </div>
 
-              {/* Sort Order */}
-              <div>
-                <label className="form-label">Sort Order</label>
-                <select
-                  name="sort_order"
-                  value={filters.sort_order}
-                  onChange={handleFilterChange}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                >
-                  <option value="desc">High to Low</option>
-                  <option value="asc">Low to High</option>
-                </select>
-              </div>
+                {/* Sort By */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sort By
+                  </label>
+                  <select
+                    name="sort_by"
+                    value={filters.sort_by}
+                    onChange={handleFilterChange}
+                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  >
+                    <option value="date_added">Newest Arrivals</option>
+                    <option value="price">Price</option>
+                    <option value="year">Year</option>
+                    <option value="mileage">Mileage</option>
+                    <option value="make">Make</option>
+                  </select>
+                </div>
 
-              {/* Status */}
-              <div>
-                <label className="form-label">Status</label>
-                <select
-                  name="status"
-                  value={filters.status}
-                  onChange={handleFilterChange}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                >
-                  <option value="all">All Vehicles</option>
-                  <option value="available">Available ({filterStats?.total_available || 0})</option>
-                  <option value="sold">Sold ({filterStats?.total_sold || 0})</option>
-                </select>
+                {/* Sort Order */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sort Order
+                  </label>
+                  <select
+                    name="sort_order"
+                    value={filters.sort_order}
+                    onChange={handleFilterChange}
+                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  >
+                    <option value="desc">High to Low</option>
+                    <option value="asc">Low to High</option>
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    value={filters.status}
+                    onChange={handleFilterChange}
+                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  >
+                    <option value="all">All Vehicles</option>
+                    <option value="available">Available ({filterStats?.total_available || 0})</option>
+                    <option value="sold">Sold ({filterStats?.total_sold || 0})</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Main Content */}
           <div className="flex-1">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-gray-700">
-                Showing {vehicles.length} of {pagination?.total_items || 0} vehicles
-              </span>
+            {/* Results Summary */}
+            <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">
+                  Showing {vehicles.length} of {pagination?.total_items || 0} vehicles
+                </span>
+                
+                {/* Mobile Filter Button */}
+                <button
+                  className="lg:hidden flex items-center gap-2 text-gray-600 hover:text-gray-900"
+                  onClick={() => setIsFilterOpen(true)}
+                >
+                  <SlidersHorizontal className="w-5 h-5" />
+                  Filters
+                </button>
+              </div>
             </div>
 
             {vehicles.length === 0 ? (
-              <div className="text-center py-10">
+              <div className="bg-white rounded-lg shadow-md p-8 text-center">
                 <p className="text-lg text-gray-600">No vehicles found matching your criteria.</p>
+                <button
+                  onClick={resetFilters}
+                  className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Reset Filters
+                </button>
               </div>
             ) : (
               <>
@@ -241,34 +325,44 @@ const InventoryPage: React.FC = () => {
 
                 {/* Pagination */}
                 {pagination && pagination.total_pages > 1 && (
-                  <div className="mt-8 flex justify-center items-center space-x-4">
+                  <div className="mt-8 flex justify-center items-center gap-2">
                     <button
                       onClick={() => handlePageChange(pagination.current_page - 1)}
                       disabled={!pagination.has_previous}
-                      className={`flex items-center px-3 py-2 rounded-md ${
+                      className={`p-2 rounded-lg border ${
                         pagination.has_previous
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          ? 'border-gray-200 text-gray-600 hover:border-blue-600 hover:text-blue-600'
+                          : 'border-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
                       <ChevronLeft className="w-5 h-5" />
-                      Previous
                     </button>
                     
-                    <span className="text-gray-600">
-                      Page {pagination.current_page} of {pagination.total_pages}
-                    </span>
-                    
+                    <div className="flex items-center gap-1">
+                      {[...Array(pagination.total_pages)].map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handlePageChange(i + 1)}
+                          className={`min-w-[2.5rem] h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                            pagination.current_page === i + 1
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+
                     <button
                       onClick={() => handlePageChange(pagination.current_page + 1)}
                       disabled={!pagination.has_next}
-                      className={`flex items-center px-3 py-2 rounded-md ${
+                      className={`p-2 rounded-lg border ${
                         pagination.has_next
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          ? 'border-gray-200 text-gray-600 hover:border-blue-600 hover:text-blue-600'
+                          : 'border-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      Next
                       <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
@@ -277,129 +371,6 @@ const InventoryPage: React.FC = () => {
             )}
           </div>
         </div>
-
-        {/* Mobile Filter Button */}
-        <button
-          onClick={() => setIsFilterOpen(true)}
-          className="lg:hidden fixed bottom-4 right-4 bg-blue-700 text-white p-4 rounded-full shadow-lg flex items-center justify-center z-40"
-          aria-label="Open filters"
-        >
-          <SlidersHorizontal className="w-6 h-6 mr-2" />
-          Filter
-        </button>
-
-        {/* Mobile Filter Modal */}
-        {isFilterOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end">
-            <div className="bg-white w-full max-w-sm h-full overflow-y-auto p-6 relative">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="font-bold text-2xl">Filters</h2>
-                <button 
-                  onClick={() => setIsFilterOpen(false)}
-                  className="text-gray-500 hover:text-gray-700 text-lg"
-                  aria-label="Close filters"
-                >
-                  &times;
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                {/* Mobile Category Filter */}
-                <div>
-                  <label className="form-label">Category</label>
-                  <select 
-                    name="category" 
-                    value={filters.category}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  >
-                    <option value="all">All Categories</option>
-                    <option value="sedan">Sedan ({filterStats?.categories.sedan || 0})</option>
-                    <option value="suv">SUV ({filterStats?.categories.suv || 0})</option>
-                    <option value="truck">Truck ({filterStats?.categories.truck || 0})</option>
-                    <option value="electric">Electric ({filterStats?.categories.electric || 0})</option>
-                    <option value="luxury">Luxury ({filterStats?.categories.luxury || 0})</option>
-                    <option value="compact">Compact ({filterStats?.categories.compact || 0})</option>
-                  </select>
-                </div>
-
-                {/* Mobile Search */}
-                <div>
-                  <label className="form-label">Search</label>
-                  <input
-                    type="text"
-                    name="search"
-                    placeholder="Search by make, model, or year"
-                    value={filters.search}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                </div>
-
-                {/* Mobile Sort By */}
-                <div>
-                  <label className="form-label">Sort By</label>
-                  <select
-                    name="sort_by"
-                    value={filters.sort_by}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  >
-                    <option value="date_added">Newest Arrivals</option>
-                    <option value="price">Price</option>
-                    <option value="year">Year</option>
-                    <option value="mileage">Mileage</option>
-                    <option value="make">Make</option>
-                  </select>
-                </div>
-
-                {/* Mobile Sort Order */}
-                <div>
-                  <label className="form-label">Sort Order</label>
-                  <select
-                    name="sort_order"
-                    value={filters.sort_order}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  >
-                    <option value="desc">High to Low</option>
-                    <option value="asc">Low to High</option>
-                  </select>
-                </div>
-
-                {/* Mobile Status */}
-                <div>
-                  <label className="form-label">Status</label>
-                  <select
-                    name="status"
-                    value={filters.status}
-                    onChange={handleFilterChange}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  >
-                    <option value="all">All Vehicles</option>
-                    <option value="available">Available ({filterStats?.total_available || 0})</option>
-                    <option value="sold">Sold ({filterStats?.total_sold || 0})</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-8 flex justify-end space-x-4">
-                <button
-                  onClick={resetFilters}
-                  className="btn-secondary px-4 py-2"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={() => setIsFilterOpen(false)}
-                  className="btn-primary px-4 py-2"
-                >
-                  Apply Filters
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

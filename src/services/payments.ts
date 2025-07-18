@@ -5,14 +5,26 @@ import { AxiosError } from 'axios';
 export const makePayment = async (data: {
   type: 'reserve' | 'service';
   amount: number;
-  vin?: string;
+  vehicle_id?: number;
+  user_id?: number;
   serviceId?: string;
 }) => {
   try {
-    const response = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, data);
+    const response = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
+      vehicle_id: data.vehicle_id,
+      user_id: data.user_id,
+      amount: data.amount,
+      type: data.type,
+      service_id: data.serviceId
+    });
     return { success: true, data: response.data };
   } catch (error) {
-    return { success: false, error: error.response?.data?.message || 'Payment failed' };
+    const axiosError = error as AxiosError<{ message?: string }>;
+    return { 
+      success: false, 
+      error: axiosError.response?.data?.message || 'Payment failed',
+      data: null
+    };
   }
 };
 

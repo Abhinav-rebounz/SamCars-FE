@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, ExternalLink, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, ExternalLink, Image as ImageIcon, Trash2, ChevronLeft, ChevronRight, AlertTriangle, FileText } from 'lucide-react';
 import { getVehicleById, deleteVehicle } from '../../services/inventory';
 import { Vehicle } from '../../types/vehicle';
 import AddVehicleForm from '../../components/inventory/AddVehicleForm';
@@ -13,7 +13,9 @@ const VehicleDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const fetchVehicle = async () => {
     if (!id) return;
@@ -47,6 +49,22 @@ const VehicleDetails: React.FC = () => {
     setImageErrors(prev => new Set(prev).add(index));
   };
 
+  const nextImage = () => {
+    if (vehicle?.images) {
+      setCurrentImageIndex((prev) => 
+        prev === vehicle.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const previousImage = () => {
+    if (vehicle?.images) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? vehicle.images.length - 1 : prev - 1
+      );
+    }
+  };
+
   const handleEdit = () => {
     setShowEditModal(true);
   };
@@ -71,10 +89,12 @@ const VehicleDetails: React.FC = () => {
         });
       } else {
         setError(response.error || 'Failed to delete vehicle');
+        setShowDeleteModal(false);
       }
     } catch (err) {
       console.error('Error deleting vehicle:', err);
       setError('An error occurred while deleting the vehicle');
+      setShowDeleteModal(false);
     }
   };
 
@@ -135,73 +155,118 @@ const VehicleDetails: React.FC = () => {
             Back to Inventory
           </button>
           
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 {vehicle.make} {vehicle.model} {vehicle.year}
               </h1>
-              <p className="text-gray-600 mt-2">VIN: {vehicle.vin || 'N/A'}</p>
-              {vehicle.stock_number && (
-                <p className="text-gray-600">Stock #: {vehicle.stock_number}</p>
-              )}
+              <div className="flex items-center gap-4 mt-2">
+                <p className="text-gray-600">VIN: {vehicle.vin || 'N/A'}</p>
+                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+                  vehicle.status === 'available' ? 'bg-green-100 text-green-800' :
+                  vehicle.status === 'sold' ? 'bg-red-100 text-red-800' :
+                  vehicle.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  vehicle.status === 'reserved' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1)}
+                </span>
+              </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3">
               {vehicle.carfax_link && (
                 <a
                   href={vehicle.carfax_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
+                  className="flex items-center bg-white text-blue-600 px-4 py-2 rounded border border-blue-600 hover:bg-blue-50 transition-colors"
                 >
-                  <ExternalLink className="w-4 h-4 mr-2" />
+                  <FileText className="h-4 w-4 mr-2" />
                   Carfax Report
                 </a>
               )}
               <button
                 onClick={handleEdit}
-                className="flex items-center bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
               >
-                <Edit className="w-4 h-4 mr-2" />
+                <Edit className="h-4 w-4 mr-2" />
                 Edit
               </button>
               <button
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to delete this vehicle? This action cannot be undone.')) {
-                    handleDelete();
-                  }
-                }}
-                className="flex items-center bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                onClick={() => setShowDeleteModal(true)}
+                className="flex items-center bg-white text-red-600 px-4 py-2 rounded border border-red-600 hover:bg-red-50 transition-colors"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="h-4 w-4 mr-2" />
                 Delete
               </button>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Images Section */}
+        {/* Images Section */}
+        <div className="space-y-6">
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Images</h2>
-            {vehicle.images && vehicle.images.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {vehicle.images.map((image, index) => (
-                  <div key={index} className="relative">
-                    {!imageErrors.has(index) ? (
-                      <img
-                        src={image}
-                        alt={`${vehicle.make} ${vehicle.model} - Image ${index + 1}`}
-                        className="w-full h-48 object-cover rounded-lg"
-                        onError={() => handleImageError(index)}
-                      />
-                    ) : (
-                      <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <ImageIcon className="h-8 w-8 text-gray-400" />
-                      </div>
-                    )}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                <span className="inline-block w-2 h-6 bg-blue-600 rounded mr-3"></span>
+                Images
+              </h2>
+              <div className="text-sm text-gray-500">
+                {vehicle?.images && vehicle.images.length > 0 && (
+                  <span>Image {currentImageIndex + 1} of {vehicle.images.length}</span>
+                )}
+              </div>
+            </div>
+            
+            {vehicle?.images && vehicle.images.length > 0 ? (
+              <div className="relative">
+                <div className="aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg overflow-hidden">
+                  {!imageErrors.has(currentImageIndex) ? (
+                    <img
+                      src={vehicle.images[currentImageIndex]}
+                      alt={`${vehicle.make} ${vehicle.model} - Image ${currentImageIndex + 1}`}
+                      className="w-full h-[400px] object-contain rounded-lg"
+                      onError={() => handleImageError(currentImageIndex)}
+                    />
+                  ) : (
+                    <div className="w-full h-[400px] bg-gray-200 rounded-lg flex items-center justify-center">
+                      <ImageIcon className="h-16 w-16 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                
+                {vehicle.images.length > 1 && (
+                  <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4">
+                    <button
+                      onClick={previousImage}
+                      className="bg-white/90 text-gray-800 p-2 rounded-full hover:bg-white transition-all shadow-lg"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </button>
+                    <button
+                      onClick={nextImage}
+                      className="bg-white/90 text-gray-800 p-2 rounded-full hover:bg-white transition-all shadow-lg"
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </button>
                   </div>
-                ))}
+                )}
+                
+                <div className="flex justify-center mt-4 space-x-2 overflow-x-auto py-2">
+                  {vehicle.images.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        index === currentImageIndex ? 'bg-blue-600 w-8' : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`Go to image ${index + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="text-center py-8">
@@ -212,162 +277,201 @@ const VehicleDetails: React.FC = () => {
           </div>
 
           {/* Vehicle Information */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Vehicle Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Basic Details</h3>
-                <dl className="space-y-2">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Make</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.make}</dd>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Basic Vehicle Details */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="inline-block w-2 h-6 bg-blue-600 rounded mr-3"></span>
+                Basic Vehicle Details
+              </h2>
+              <dl className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <dt className="text-sm font-medium text-gray-500">Make & Model</dt>
+                  <dd className="text-sm font-semibold text-gray-900">{vehicle.make} {vehicle.model}</dd>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <dt className="text-sm font-medium text-gray-500">Year</dt>
+                  <dd className="text-sm font-semibold text-gray-900">{vehicle.year}</dd>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <dt className="text-sm font-medium text-gray-500">VIN</dt>
+                  <dd className="text-sm font-semibold text-gray-900">{vehicle.vin || 'N/A'}</dd>
+                </div>
+                {vehicle.stock_number && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Stock Number</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.stock_number}</dd>
                   </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Model</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.model}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Year</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.year}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Price</dt>
-                    <dd className="text-sm text-gray-900">${vehicle.price.toLocaleString()}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Sold Price</dt>
-                    <dd className="text-sm text-gray-900">
-                      {vehicle.sold_price ? `$${vehicle.sold_price.toLocaleString()}` : 'Not sold'}
-                    </dd>
-                  </div>
-                  <div>
+                )}
+                {vehicle.mileage && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
                     <dt className="text-sm font-medium text-gray-500">Mileage</dt>
-                    <dd className="text-sm text-gray-900">
-                      {vehicle.mileage ? vehicle.mileage.toLocaleString() : 'N/A'}
-                    </dd>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.mileage.toLocaleString()} miles</dd>
                   </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">VIN</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.vin || 'N/A'}</dd>
+                )}
+                {vehicle.location && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Location</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.location}</dd>
                   </div>
-                </dl>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Specifications</h3>
-                <dl className="space-y-2">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Engine</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.engine || 'N/A'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Transmission</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.transmission || 'N/A'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Body Type</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.body_type || 'N/A'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Fuel Type</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.fuel_type || 'N/A'}</dd>
-                  </div>
-                  <div>
+                )}
+                {vehicle.condition && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
                     <dt className="text-sm font-medium text-gray-500">Condition</dt>
-                    <dd className="text-sm text-gray-900">{vehicle.condition || 'N/A'}</dd>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.condition}</dd>
                   </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Status</dt>
-                    <dd className="text-sm text-gray-900">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        vehicle.status === 'available' ? 'bg-green-100 text-green-800' :
-                        vehicle.status === 'sold' ? 'bg-red-100 text-red-800' :
-                        vehicle.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {vehicle.status}
-                      </span>
+                )}
+                {vehicle.created_at && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Created</dt>
+                    <dd className="text-sm font-semibold text-gray-900">
+                      {new Date(vehicle.created_at).toLocaleDateString()}
                     </dd>
                   </div>
-                </dl>
-              </div>
+                )}
+                {vehicle.updated_at && (
+                  <div className="flex justify-between items-center py-2">
+                    <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+                    <dd className="text-sm font-semibold text-gray-900">
+                      {new Date(vehicle.updated_at).toLocaleDateString()}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            {/* Price Details */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="inline-block w-2 h-6 bg-blue-600 rounded mr-3"></span>
+                Price Details
+              </h2>
+              <dl className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <dt className="text-sm font-medium text-gray-500">List Price</dt>
+                  <dd className="text-sm font-semibold text-gray-900">${vehicle.price.toLocaleString()}</dd>
+                </div>
+                {vehicle.sold_price && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Sold Price</dt>
+                    <dd className="text-sm font-semibold text-green-600">${vehicle.sold_price.toLocaleString()}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-2">
+                  <dt className="text-sm font-medium text-gray-500">Status</dt>
+                  <dd>
+                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                      vehicle.status === 'available' ? 'bg-green-100 text-green-800' :
+                      vehicle.status === 'sold' ? 'bg-red-100 text-red-800' :
+                      vehicle.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      vehicle.status === 'reserved' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1)}
+                    </span>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            {/* Technical Details */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="inline-block w-2 h-6 bg-blue-600 rounded mr-3"></span>
+                Technical Details
+              </h2>
+              <dl className="space-y-3">
+                {vehicle.engine && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Engine</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.engine}</dd>
+                  </div>
+                )}
+                {vehicle.transmission && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Transmission</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.transmission}</dd>
+                  </div>
+                )}
+                {vehicle.fuel_type && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Fuel Type</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.fuel_type}</dd>
+                  </div>
+                )}
+                {vehicle.body_type && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Body Type</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.body_type}</dd>
+                  </div>
+                )}
+                {vehicle.exterior_color && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt className="text-sm font-medium text-gray-500">Exterior Color</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.exterior_color}</dd>
+                  </div>
+                )}
+                {vehicle.interior_color && (
+                  <div className="flex justify-between items-center py-2">
+                    <dt className="text-sm font-medium text-gray-500">Interior Color</dt>
+                    <dd className="text-sm font-semibold text-gray-900">{vehicle.interior_color}</dd>
+                  </div>
+                )}
+              </dl>
             </div>
           </div>
 
-          {/* Colors and Location */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Colors & Location</h2>
-            <dl className="space-y-4">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Exterior Color</dt>
-                <dd className="text-sm text-gray-900">{vehicle.exterior_color || 'N/A'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Interior Color</dt>
-                <dd className="text-sm text-gray-900">{vehicle.interior_color || 'N/A'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Location</dt>
-                <dd className="text-sm text-gray-900">{vehicle.location || 'N/A'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Stock Number</dt>
-                <dd className="text-sm text-gray-900">{vehicle.stock_number || 'N/A'}</dd>
-              </div>
-            </dl>
-          </div>
+          {/* Description */}
+          {vehicle.description && (
+            <div className="bg-white rounded-lg shadow p-6 mt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="inline-block w-2 h-6 bg-blue-600 rounded mr-3"></span>
+                Description
+              </h2>
+              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{vehicle.description}</p>
+            </div>
+          )}
 
-          {/* Features and Tags */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Features & Tags</h2>
-            
-            {vehicle.features && vehicle.features.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Features</h3>
-                <div className="flex flex-wrap gap-2">
-                  {vehicle.features.map((feature, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                    >
-                      {feature}
-                    </span>
-                  ))}
-                </div>
+          {/* Features */}
+          {vehicle.features && vehicle.features.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-6 mt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="inline-block w-2 h-6 bg-blue-600 rounded mr-3"></span>
+                Features
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {vehicle.features.map((feature, index) => (
+                  <div key={index} className="flex items-center">
+                    <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-700">{feature}</span>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {vehicle.tags && vehicle.tags.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Tags</h3>
-                <div className="flex flex-wrap gap-2">
-                  {vehicle.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+          {/* Tags */}
+          {vehicle.tags && vehicle.tags.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-6 mt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="inline-block w-2 h-6 bg-blue-600 rounded mr-3"></span>
+                Tags
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {vehicle.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800"
+                  >
+                    {tag}
+                  </span>
+                ))}
               </div>
-            )}
-
-            {(!vehicle.features || vehicle.features.length === 0) && 
-             (!vehicle.tags || vehicle.tags.length === 0) && (
-              <p className="text-gray-500 text-sm">No features or tags available</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
-        {/* Description */}
-        {vehicle.description && (
-          <div className="mt-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Description</h2>
-            <p className="text-gray-700 whitespace-pre-wrap">{vehicle.description}</p>
-          </div>
-        )}
 
         {/* Edit Vehicle Modal */}
         {showEditModal && vehicle && (
@@ -414,6 +518,55 @@ const VehicleDetails: React.FC = () => {
                       isEditing={true}
                     />
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="fixed z-10 inset-0 overflow-y-auto">
+            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+              </div>
+
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
+
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                        Delete Vehicle
+                      </h3>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500">
+                          Are you sure you want to delete this vehicle? This action cannot be undone.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={handleDelete}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={() => setShowDeleteModal(false)}
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             </div>

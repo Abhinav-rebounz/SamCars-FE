@@ -57,11 +57,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
         if (!selectedVehicle) {
           throw new Error('Please check VIN first');
         }
+
+        const response = await makePayment({
+          type: 'reserve',
+          amount: parseFloat(amount),
+          vehicle_id: selectedVehicle.id,
+          user_id: user?.id // Get from auth context
+        });
+
+        if (response.success && response.data?.url) {
+          window.location.href = response.data.url;
+        } else {
+          throw new Error(response.error || 'Payment initialization failed');
+        }
       }
 
-      // Mock payment processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       setSuccess(true);
       setTimeout(() => {
         onClose();

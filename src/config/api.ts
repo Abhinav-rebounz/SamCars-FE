@@ -88,7 +88,7 @@ export const API_ENDPOINTS = {
     
     // Users
     USER_PROFILE: '/users/profile',
-    UPDATE_PROFILE: '/users/profile',
+    UPDATE_PROFILE: '/users/profile/update',
     USERS_LIST: '/users/list',
     USER_STATUS: (userId: string) => `/users/${userId}/status`,
     

@@ -8,7 +8,8 @@ import {
   Gavel, 
   Wrench, 
   LogOut,
-  User
+  User,
+  Home
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -79,6 +80,17 @@ const AdminSidebar: React.FC = () => {
                 <User size={20} />
               </span>
               <span>Profile</span>
+            </Link>
+          </li>
+          <li className="px-2 py-1">
+            <Link
+              to="/"
+              className="flex items-center px-4 py-3 rounded-md text-gray-300 hover:bg-gray-800 transition-colors"
+            >
+              <span className="mr-3">
+                <Home size={20} />
+              </span>
+              <span>Return to Main Site</span>
             </Link>
           </li>
           <li className="px-2 py-1">
