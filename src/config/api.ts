@@ -117,6 +117,8 @@ export const API_ENDPOINTS = {
     
     // Payments
     CREATE_CHECKOUT_SESSION: '/payments/create-checkout-session',
+    PAYMENTS_ADMIN: '/payments/admin',
+    ADD_MANUAL_PAYMENT: '/payments/admin/manual',
 
     // Wishlist
     WISHLIST: '/wishlist',
@@ -125,5 +127,8 @@ export const API_ENDPOINTS = {
 
     // Business Settings
     BUSINESS_SETTINGS: '/business-settings',
-    UPDATE_BUSINESS_SETTINGS: '/business-settings'
+    UPDATE_BUSINESS_SETTINGS: '/business-settings',
+
+    // Dashboard
+    DASHBOARD_STATS: '/dashboard/stats'
 };

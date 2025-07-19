@@ -1,4 +1,5 @@
 import { api, API_ENDPOINTS, handleApiError } from '../config/api';
+import { AxiosError } from 'axios';
 
 interface CheckoutSession {
   url: string;
@@ -52,8 +53,8 @@ export const verifyVin = async (lastFourDigits: string) => {
 // Fetch all payments with optional filters
 export const fetchPayments = async (filters?: Record<string, any>) => {
   try {
-    const response = await api.get(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, { params: filters });
-    return { success: true, data: response.data };
+    const response = await api.get(API_ENDPOINTS.PAYMENTS_ADMIN, { params: filters });
+    return response.data; // Return the response directly since it already has the correct structure
   } catch (error: unknown) {
     const axiosError = error as AxiosError<{ message?: string }>;
     return { success: false, error: axiosError.response?.data?.message || 'Failed to fetch payments' };
@@ -76,8 +77,8 @@ export const addManualPayment = async (data: {
 }) => {
   try {
     const payload = { ...data, is_manual: true };
-    const response = await api.post(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, payload);
-    return { success: true, data: response.data };
+    const response = await api.post(API_ENDPOINTS.ADD_MANUAL_PAYMENT, payload);
+    return response.data; // Return the response directly since it already has the correct structure
   } catch (error: unknown) {
     const axiosError = error as AxiosError<{ message?: string }>;
     return { success: false, error: axiosError.response?.data?.message || 'Failed to add manual payment' };
