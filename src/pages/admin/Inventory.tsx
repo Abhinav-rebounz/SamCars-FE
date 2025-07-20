@@ -7,7 +7,17 @@ import {
   Search,
   Trash2,
   Image as ImageIcon,
-  ExternalLink
+  ExternalLink,
+  Car,
+  Calendar,
+  DollarSign,
+  Tag,
+  Eye,
+  MoreVertical,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  X
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -206,252 +216,378 @@ const Inventory: React.FC = () => {
     navigate(`/admin/inventory/${id}`);
   };
 
+  // Get status icon and color
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'available':
+        return { icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', border: 'border-green-200' };
+      case 'sold':
+        return { icon: Tag, color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-200' };
+      case 'pending':
+        return { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-100', border: 'border-yellow-200' };
+      case 'maintenance':
+        return { icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-200' };
+      default:
+        return { icon: Clock, color: 'text-gray-600', bg: 'bg-gray-100', border: 'border-gray-200' };
+    }
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Success Message */}
-      {successMessage && !error && (
-        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded flex justify-between items-center">
-          <span>{successMessage}</span>
-          <button
-            onClick={() => setSuccessMessage(null)}
-            className="text-green-600 hover:text-green-800 font-bold text-xl"
-          >
-            ×
-          </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Fixed Alert Messages at Top of Page */}
+      {successMessage && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
+          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-semibold text-green-800">Success!</h3>
+                  <p className="text-xs text-green-700 mt-1">{successMessage}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSuccessMessage(null)}
+                className="flex-shrink-0 ml-4 text-green-600 hover:text-green-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Error Message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded flex justify-between items-center">
-          <span>{error}</span>
-          <button
-            onClick={() => setError(null)}
-            className="text-red-600 hover:text-red-800 font-bold text-xl"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="mt-3 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Vehicle
-        </button>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          <div className="w-full md:w-1/3">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
+          <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-semibold text-red-800">Error</h3>
+                  <p className="text-xs text-red-700 mt-1">{error}</p>
+                </div>
               </div>
-              <input
-                type="text"
-                placeholder="Search vehicles by name or VIN..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center">
-              <Filter className="h-5 w-5 text-gray-400 mr-2" />
-              <select
-                value={filterStatus}
-                onChange={handleFilterChange}
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              <button
+                onClick={() => setError(null)}
+                className="flex-shrink-0 ml-4 text-red-600 hover:text-red-800 transition-colors"
               >
-                <option value="">All Vehicles</option>
-                <option value="available">Available</option>
-                <option value="sold">Sold</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-            </div>
-
-            <div>
-              <select
-                value={itemsPerPage}
-                onChange={handleItemsPerPageChange}
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-              >
-                <option value="10">10 per page</option>
-                <option value="25">25 per page</option>
-                <option value="50">50 per page</option>
-                <option value="100">100 per page</option>
-              </select>
+                <X className="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Loading and Error States */}
-      {loading && (
-        <div className="space-y-4">
-          {[...Array(itemsPerPage)].map((_, i) => (
-            <div key={i} className="animate-pulse flex space-x-4 p-4 bg-gray-100 rounded">
-              <div className="rounded-full bg-gray-300 h-10 w-10" />
-              <div className="flex-1 space-y-2 py-1">
-                <div className="h-4 bg-gray-300 rounded w-1/4" />
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
+      <div className="container mx-auto px-4 py-8">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 sm:mb-0">
+              <div className="flex items-center">
+                <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl mr-4">
+                  <Car className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">Inventory Management</h1>
+                  <p className="text-gray-600 mt-1">Manage your vehicle inventory efficiently</p>
+                </div>
               </div>
             </div>
-          ))}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Vehicle
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Inventory Table */}
-      {!loading && !error && vehicles.length === 0 && (
-        <div className="text-center py-8 text-gray-500">No vehicles found.</div>
-      )}
-      {!loading && !error && (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vehicle
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('created_at')}>
-                    Date Added
-                    {sortField === 'date_added' && (  // Update the condition to check for date_added
-                      sortDirection === 'asc' ? <ChevronUp className="inline h-4 w-4 ml-1" /> : <ChevronDown className="inline h-4 w-4 ml-1" />
-                    )}
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('price')}>
-                    Price
-                    {sortField === 'price' && (
-                      sortDirection === 'asc' ? <ChevronUp className="inline h-4 w-4 ml-1" /> : <ChevronDown className="inline h-4 w-4 ml-1" />
-                    )}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sortedVehicles.map((vehicle) => (
-                  <tr 
-                    key={vehicle.id}
-                    onClick={() => handleVehicleClick(vehicle.id)}
-                    className="hover:bg-gray-50 cursor-pointer"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
+
+
+        {/* Filters and Search */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search vehicles by make, model, year, or VIN..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center">
+                <Filter className="h-5 w-5 text-gray-400 mr-3" />
+                <select
+                  value={filterStatus}
+                  onChange={handleFilterChange}
+                  className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="">All Vehicles</option>
+                  <option value="available">Available</option>
+                  <option value="sold">Sold</option>
+                  <option value="pending">Pending</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={itemsPerPage}
+                  onChange={handleItemsPerPageChange}
+                  className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="10">10 per page</option>
+                  <option value="25">25 per page</option>
+                  <option value="50">50 per page</option>
+                  <option value="100">100 per page</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(itemsPerPage)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
+                <div className="flex items-center space-x-4">
+                  <div className="rounded-lg bg-gray-300 h-16 w-16"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && vehicles.length === 0 && (
+          <div className="text-center py-12">
+            <div className="mx-auto h-24 w-24 text-gray-300 mb-4">
+              <Car className="h-full w-full" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No vehicles found</h3>
+            <p className="text-gray-500 mb-6">Get started by adding your first vehicle to the inventory.</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add First Vehicle
+            </button>
+          </div>
+        )}
+
+        {/* Vehicle Table */}
+        {!loading && !error && vehicles.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Vehicle
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('created_at')}
+                    >
                       <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0">
-                          {!imageErrors[vehicle.id] && vehicle.images && vehicle.images[0] ? (
-                            <img
-                              className="h-10 w-10 rounded-full object-cover"
-                              src={vehicle.images[0]}
-                              alt=""
-                              onError={() => handleImageError(vehicle.id)}
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <ImageIcon className="h-6 w-6 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {vehicle.year} {vehicle.make} {vehicle.model}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            VIN: {vehicle.vin}
-                          </div>
-                        </div>
+                        Date Added
+                        {sortField === 'date_added' && (
+                          sortDirection === 'asc' ? 
+                            <ChevronUp className="inline h-4 w-4 ml-2 text-blue-600" /> : 
+                            <ChevronDown className="inline h-4 w-4 ml-2 text-blue-600" />
+                        )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(vehicle.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        vehicle.status === 'available' ? 'bg-green-100 text-green-800' :
-                        vehicle.status === 'sold' ? 'bg-red-100 text-red-800' :
-                        vehicle.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${vehicle.price.toLocaleString()}
-                    </td>
+                    </th>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('price')}
+                    >
+                      <div className="flex items-center">
+                        Price
+                        {sortField === 'price' && (
+                          sortDirection === 'asc' ? 
+                            <ChevronUp className="inline h-4 w-4 ml-2 text-blue-600" /> : 
+                            <ChevronDown className="inline h-4 w-4 ml-2 text-blue-600" />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort('mileage')}
+                    >
+                      <div className="flex items-center">
+                        Mileage
+                        {sortField === 'mileage' && (
+                          sortDirection === 'asc' ? 
+                            <ChevronUp className="inline h-4 w-4 ml-2 text-blue-600" /> : 
+                            <ChevronDown className="inline h-4 w-4 ml-2 text-blue-600" />
+                        )}
+                      </div>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {pagination && pagination.total_pages > 1 && (
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={!pagination.has_previous}
-              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={!pagination.has_next}
-              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">{((pagination.current_page - 1) * pagination.items_per_page) + 1}</span> to{' '}
-                <span className="font-medium">
-                  {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)}
-                </span>{' '}
-                of <span className="font-medium">{pagination.total_items}</span> results
-              </p>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sortedVehicles.map((vehicle) => {
+                    const statusInfo = getStatusInfo(vehicle.status);
+                    const StatusIcon = statusInfo.icon;
+                    
+                    return (
+                      <tr 
+                        key={vehicle.id}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                        onClick={() => handleVehicleClick(vehicle.id)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-12 w-12 flex-shrink-0">
+                              {!imageErrors[vehicle.id] && vehicle.images && vehicle.images[0] ? (
+                                <img
+                                  className="h-12 w-12 rounded-lg object-cover border border-gray-200"
+                                  src={vehicle.images[0]}
+                                  alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                                  onError={() => handleImageError(vehicle.id)}
+                                />
+                              ) : (
+                                <div className="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+                                  <ImageIcon className="h-6 w-6 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-semibold text-gray-900">
+                                {vehicle.year} {vehicle.make} {vehicle.model}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                VIN: {vehicle.vin}
+                              </div>
+                              {vehicle.stock_number && (
+                                <div className="text-xs text-gray-400">
+                                  Stock: {vehicle.stock_number}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                            {new Date(vehicle.created_at).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.bg} ${statusInfo.border} ${statusInfo.color}`}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <DollarSign className="h-4 w-4 text-green-600 mr-1" />
+                            <span className="text-sm font-semibold text-gray-900">
+                              ${vehicle.price.toLocaleString()}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Car className="h-4 w-4 mr-2 text-gray-400" />
+                            {vehicle.mileage ? `${vehicle.mileage.toLocaleString()} mi` : 'N/A'}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination && pagination.total_pages > 1 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 sm:mb-0">
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-semibold">{((pagination.current_page - 1) * pagination.items_per_page) + 1}</span> to{' '}
+                  <span className="font-semibold">
+                    {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)}
+                  </span>{' '}
+                  of <span className="font-semibold">{pagination.total_items}</span> vehicles
+                </p>
+              </div>
+              
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={!pagination.has_previous}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <span className="sr-only">Previous</span>
-                  <ChevronDown className="h-5 w-5 rotate-90" />
+                  Previous
                 </button>
+                
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
+                    const page = i + 1;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          page === currentPage
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                </div>
+                
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={!pagination.has_next}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <span className="sr-only">Next</span>
-                  <ChevronDown className="h-5 w-5 rotate-90" />
+                  Next
                 </button>
-              </nav>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Add Vehicle Modal */}
       {showAddModal && (
-        <div className="fixed z-10 inset-0 overflow-y-auto">
+        <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
@@ -459,23 +595,20 @@ const Inventory: React.FC = () => {
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 relative">
+            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4 relative">
                 <button
-                  className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors"
                   onClick={closeAddModal}
-                  aria-label="Close Add Vehicle Form"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="h-6 w-6" />
                 </button>
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <Plus className="h-6 w-6 text-blue-700" />
+                    <Plus className="h-6 w-6 text-blue-600" />
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
                       Add New Vehicle
                     </h3>
                     <div className="mt-2">
@@ -486,7 +619,7 @@ const Inventory: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-5 sm:mt-4">
+                <div className="mt-6">
                   <AddVehicleForm
                     onSuccess={handleAddComplete}
                     onCancel={closeAddModal}
@@ -500,12 +633,8 @@ const Inventory: React.FC = () => {
       )}
 
       {/* Edit Vehicle Modal */}
-      {(() => {
-        console.log('showEditModal:', showEditModal, 'selectedVehicle:', selectedVehicle);
-        return null;
-      })()}
       {showEditModal && selectedVehicle && (
-        <div className="fixed z-10 inset-0 overflow-y-auto">
+        <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
@@ -513,23 +642,20 @@ const Inventory: React.FC = () => {
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 relative">
+            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4 relative">
                 <button
-                  className="absolute top-4 right-4 text-gray-700 hover:text-red-600 bg-white rounded-full p-1 shadow focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors"
                   onClick={() => setShowEditModal(false)}
-                  aria-label="Close Edit Vehicle Form"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="h-6 w-6" />
                 </button>
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <Edit className="h-6 w-6 text-blue-700" />
+                    <Edit className="h-6 w-6 text-blue-600" />
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
                       Edit Vehicle
                     </h3>
                     <div className="mt-2">
@@ -540,7 +666,7 @@ const Inventory: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-5 sm:mt-4">
+                <div className="mt-6">
                   <AddVehicleForm
                     initialData={selectedVehicle}
                     onSuccess={handleEditComplete}
@@ -556,7 +682,7 @@ const Inventory: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed z-10 inset-0 overflow-y-auto">
+        <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
@@ -564,14 +690,14 @@ const Inventory: React.FC = () => {
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                     <Trash2 className="h-6 w-6 text-red-600" />
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
                       Delete Vehicle
                     </h3>
                     <div className="mt-2">
@@ -582,17 +708,17 @@ const Inventory: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <div className="bg-gray-50 px-6 py-4 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-3 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
                   onClick={confirmDelete}
                 >
                   Delete
                 </button>
                 <button
                   type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-4 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
                   onClick={() => setShowDeleteModal(false)}
                 >
                   Cancel

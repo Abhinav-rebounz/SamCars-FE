@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Filter, SlidersHorizontal, ChevronLeft, ChevronRight, AlertCircle, X } from 'lucide-react';
 import VehicleCard from '../../components/VehicleCard';
 import { getInventory, type InventoryFilters, type PaginationInfo, type FilterStats } from '../../services/inventory';
 import { Vehicle as VehicleType } from '../../types/vehicle';
@@ -122,15 +122,39 @@ const InventoryPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl text-red-600 mb-2">{error}</p>
-          <button
-            onClick={resetFilters}
-            className="text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Reset Filters
-          </button>
+      <div className="min-h-screen bg-gray-50">
+        {/* Fixed Alert Messages at Top of Page */}
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
+          <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-semibold text-red-800">Error</h3>
+                  <p className="text-xs text-red-700 mt-1">{error}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="flex-shrink-0 ml-4 text-red-600 hover:text-red-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <button
+              onClick={resetFilters}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
       </div>
     );

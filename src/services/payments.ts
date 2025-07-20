@@ -63,7 +63,7 @@ export const fetchPayments = async (filters?: Record<string, any>) => {
 
 // Add a manual payment
 export const addManualPayment = async (data: {
-  user_id: string;
+  user_id?: string;
   amount: number;
   payment_method: string;
   description: string;
@@ -74,6 +74,12 @@ export const addManualPayment = async (data: {
   status: string;
   date?: string;
   is_manual?: boolean;
+  customer_data?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone?: string;
+  };
 }) => {
   try {
     const payload = { ...data, is_manual: true };
@@ -82,5 +88,46 @@ export const addManualPayment = async (data: {
   } catch (error: unknown) {
     const axiosError = error as AxiosError<{ message?: string }>;
     return { success: false, error: axiosError.response?.data?.message || 'Failed to add manual payment' };
+  }
+};
+
+// Update a payment
+export const updatePayment = async (paymentId: string, data: {
+  user_id?: string;
+  amount: number;
+  payment_method: string;
+  description: string;
+  related_appointment_id?: number;
+  related_appointment_type?: string;
+  vehicle_id?: number;
+  service_id?: number;
+  status: string;
+  date?: string;
+  is_manual?: boolean;
+  customer_data?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone?: string;
+  };
+}) => {
+  try {
+    const payload = { ...data, is_manual: true };
+    const response = await api.put(`${API_ENDPOINTS.PAYMENTS_ADMIN}/${paymentId}`, payload);
+    return response.data;
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    return { success: false, error: axiosError.response?.data?.message || 'Failed to update payment' };
+  }
+};
+
+// Delete a payment
+export const deletePayment = async (paymentId: string) => {
+  try {
+    const response = await api.delete(`${API_ENDPOINTS.PAYMENTS_ADMIN}/${paymentId}`);
+    return response.data;
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    return { success: false, error: axiosError.response?.data?.message || 'Failed to delete payment' };
   }
 };

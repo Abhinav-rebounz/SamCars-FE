@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   DollarSign, 
   Download, 
@@ -13,12 +14,34 @@ import {
   User,
   Calendar,
   CreditCard,
-  FileText as FileTextIcon
+  FileText as FileTextIcon,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Car,
+  Receipt,
+  ExternalLink,
+  Eye,
+  Edit,
+  Trash2,
+  XCircle,
+  AlertTriangle,
+  Wrench,
+  BarChart3,
+  FileSpreadsheet
 } from 'lucide-react';
-import { fetchPayments, addManualPayment } from '../../services/payments';
-import { fetchAllUsers } from '../../services/user';
+import { fetchPayments, deletePayment } from '../../services/payments';
+import ManualPaymentModal from '../../components/admin/ManualPaymentModal';
+import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
+import ExportModal from '../../components/admin/ExportModal';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import Toast from '../../components/Toast';
+import { Payment } from '../../types/payment';
+import { PaymentExportData, ExportFormat } from '../../utils/exportUtils';
 
 const Payments: React.FC = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -26,24 +49,18 @@ const Payments: React.FC = () => {
   const [filterType, setFilterType] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
   
-  // 2. Replace mock payments data with real data and loading/error state
+  // Replace mock payments data with real data and loading/error state
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ 
-    user_id: '', 
-    amount: '', 
-    payment_method: 'cash', 
-    description: '', 
-    status: 'completed', 
-    date: new Date().toISOString().split('T')[0],
-    type: 'service'
-  });
-  const [addFormError, setAddFormError] = useState<string | null>(null);
-  const [addFormLoading, setAddFormLoading] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
+  const [showManualPaymentModal, setShowManualPaymentModal] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const fetchAllPayments = async () => {
     setLoading(true);
@@ -62,32 +79,8 @@ const Payments: React.FC = () => {
     }
   };
 
-  const fetchUsers = async () => {
-    setUsersLoading(true);
-    try {
-      console.log('Fetching users...');
-      const token = localStorage.getItem('accessToken');
-      console.log('Auth token exists:', !!token);
-      
-      const response = await fetchAllUsers();
-      console.log('Users API response:', response);
-      
-      if (response.success) {
-        console.log('Fetched users:', response.users);
-        setUsers(response.users);
-      } else {
-        console.error('Failed to fetch users:', response.error);
-      }
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
-    } finally {
-      setUsersLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchAllPayments();
-    fetchUsers();
   }, []);
   
   // Filter payments based on search term and filters
@@ -141,6 +134,7 @@ const Payments: React.FC = () => {
   };
   
   const handleViewPayment = (payment: any) => {
+    console.log('Opening payment details for:', payment);
     setSelectedPayment(payment);
   };
   
@@ -151,56 +145,137 @@ const Payments: React.FC = () => {
   };
   
   const handleExport = () => {
-    // In a real app, this would export payment data
-    alert('Exporting payment data...');
+    setShowExportModal(true);
   };
 
+  const handleExportSuccess = (message: string) => {
+    setToastMessage(message);
+    setToastType('success');
+  };
+
+  const handleExportError = (message: string) => {
+    setToastMessage(message);
+    setToastType('error');
+  };
+
+  // Convert payments to export format
+  const getExportData = (): PaymentExportData[] => {
+    return sortedPayments.map(payment => ({
+      id: payment.id,
+      customer: payment.customer,
+      description: payment.description,
+      amount: payment.amount,
+      date: payment.date,
+      status: payment.status,
+      type: payment.type,
+      transactionId: payment.transactionId,
+      is_stripe: payment.is_stripe,
+      vehicle_id: payment.vehicle_id,
+      created_at: payment.created_at,
+      updated_at: payment.updated_at
+    }));
+  };
+
+  const handleViewVehicleDetails = (vehicleId: string) => {
+    navigate(`/admin/inventory/${vehicleId}`);
+    setSelectedPayment(null); // Close the payment modal
+  };
+
+  const handleDeletePayment = async () => {
+    if (!selectedPayment) return;
+    setIsDeleting(true);
+    try {
+      const response = await deletePayment(selectedPayment.id);
+      if (response.success) {
+        setToastMessage('Payment deleted successfully');
+        setToastType('success');
+        fetchAllPayments();
+      } else {
+        setToastMessage(response.error || 'Failed to delete payment');
+        setToastType('error');
+      }
+    } catch (err) {
+      setToastMessage('Failed to delete payment');
+      setToastType('error');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirmation(false);
+    }
+  };
+
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setShowEditModal(true);
+    setSelectedPayment(null); // Close the payment details modal
+  };
+
+  const handleDeleteClick = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setShowDeleteConfirmation(true);
+  };
+
+
+
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-      <div className="sm:flex sm:items-center sm:justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Payment Manager</h1>
-        <div className="mt-3 sm:mt-0 flex space-x-3">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Add Manual Payment
-          </button>
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </button>
+    <div className="px-6 py-8 w-full max-w-9xl mx-auto bg-gray-50 min-h-screen">
+      {/* Header Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 flex items-center justify-center h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
+              <DollarSign className="h-8 w-8 text-white" />
+            </div>
+            <div className="ml-5">
+              <h1 className="text-3xl font-bold text-gray-900">Payment Manager</h1>
+              <p className="text-gray-600 mt-1">Manage and track all payment transactions</p>
+            </div>
+          </div>
+          <div className="flex space-x-4">
+            <button
+              onClick={() => setShowManualPaymentModal(true)}
+              className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Manual Payment
+            </button>
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <Download className="h-5 w-5 mr-2" />
+              Export
+            </button>
+          </div>
         </div>
+
+
       </div>
       
       {/* Filters and Search */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          <div className="w-full md:w-1/3">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <div className="flex-1 max-w-md">
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
-                placeholder="Search payments..."
+                placeholder="Search by customer, description, or transaction ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
-              <Filter className="h-5 w-5 text-gray-400 mr-2" />
-              <select 
+              <Filter className="h-5 w-5 text-gray-400 mr-3" />
+              <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
                 <option value="all">All Statuses</option>
                 <option value="completed">Completed</option>
@@ -208,12 +283,12 @@ const Payments: React.FC = () => {
                 <option value="refunded">Refunded</option>
               </select>
             </div>
-            
-            <div className="flex items-center">
-              <select 
+
+            <div>
+              <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
                 <option value="all">All Types</option>
                 <option value="vehicle hold">Vehicle Hold</option>
@@ -227,25 +302,43 @@ const Payments: React.FC = () => {
       </div>
       
       {/* Payments Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          {/* 6. Add skeleton loader, empty, and error states for the payments table */}
+          {/* Loading, Error, and Empty States */}
           {loading ? (
-            <div className="p-4 text-center text-gray-500">Loading payments...</div>
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 font-medium">Loading payments...</p>
+            </div>
           ) : error ? (
-            <div className="p-4 text-center text-red-500">{error}</div>
+            <div className="p-12 text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <p className="text-red-600 font-medium">{error}</p>
+              <button 
+                onClick={fetchAllPayments}
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </button>
+            </div>
           ) : !loading && payments.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">No payments found.</div>
+            <div className="p-12 text-center">
+              <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 font-medium">No payments found</p>
+              <p className="text-gray-500 text-sm mt-1">Start by adding a manual payment or wait for online payments</p>
+            </div>
           ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th 
                   scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleSort('customer')}
                 >
                   <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2" />
                     Customer
                     {sortField === 'customer' && (
                       sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
@@ -254,10 +347,11 @@ const Payments: React.FC = () => {
                 </th>
                 <th 
                   scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleSort('description')}
                 >
                   <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
                     Description
                     {sortField === 'description' && (
                       sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
@@ -266,94 +360,120 @@ const Payments: React.FC = () => {
                 </th>
                 <th 
                   scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleSort('amount')}
                 >
                   <div className="flex items-center">
+                    <DollarSign className="h-4 w-4 mr-2" />
                     Amount
                     {sortField === 'amount' && (
                       sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
                     )}
                   </div>
                 </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort('date')}
-                >
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50" onClick={() => handleSort('date')}>
                   <div className="flex items-center">
                     Date
                     {sortField === 'date' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
                     )}
                   </div>
                 </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Status
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50" onClick={() => handleSort('status')}>
+                  <div className="flex items-center">
+                    Status
+                    {sortField === 'status' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Receipt
-                </th>
-              </tr>
+                </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-100">
               {sortedPayments.map((payment) => (
                 <tr 
                   key={payment.id}
                   onClick={() => handleViewPayment(payment)}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                  className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{payment.customer}</div>
-                    <div className="text-sm text-gray-500">{payment.email}</div>
+                  <td className="px-6 py-5 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <User className="h-5 w-5 text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-semibold text-gray-900">{payment.customer}</div>
+                        <div className="text-sm text-gray-500">{payment.email}</div>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{payment.description}</div>
+                  <td className="px-6 py-5 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{payment.description}</div>
                     <div className="text-sm text-gray-500 capitalize">{payment.type}</div>
-                    <div className="flex items-center space-x-2 mt-1">
+                    <div className="flex items-center space-x-2 mt-2">
                       {payment.is_manual && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-yellow-100 text-yellow-800">Manual</span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                          Manual
+                        </span>
                       )}
                       {payment.is_stripe && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800">Stripe</span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                          Stripe
+                        </span>
                       )}
                       {payment.vehicle && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                          <Car className="h-3 w-3 mr-1" />
                           {payment.vehicle.year} {payment.vehicle.make} {payment.vehicle.model}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewVehicleDetails(payment.vehicle.id || payment.vehicle.vehicle_id);
+                            }}
+                            className="ml-1 p-0.5 hover:bg-green-200 rounded-full transition-colors"
+                            title="View Vehicle Details"
+                          >
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </button>
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${payment.amount.toFixed(2)}
+                  <td className="px-6 py-5 whitespace-nowrap">
+                    <div className="text-lg font-bold text-gray-900">
+                      ${payment.amount.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {payment.currency || 'USD'}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(payment.date).toLocaleDateString()}
+                  <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                      {new Date(payment.date).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {new Date(payment.date).toLocaleTimeString()}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      payment.status === 'Completed' 
+                  <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-900">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                      payment.status.toLowerCase() === 'completed' 
                         ? 'bg-green-100 text-green-800' 
-                        : payment.status === 'Pending'
+                        : payment.status.toLowerCase() === 'pending'
                         ? 'bg-yellow-100 text-yellow-800'
+                        : payment.status.toLowerCase() === 'refunded'
+                        ? 'bg-blue-100 text-blue-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
+                      {payment.status.toLowerCase() === 'completed' && <CheckCircle className="h-4 w-4 mr-1" />}
+                      {payment.status.toLowerCase() === 'pending' && <Clock className="h-4 w-4 mr-1" />}
+                      {payment.status.toLowerCase() === 'refunded' && <RefreshCw className="h-4 w-4 mr-1" />}
+                      {payment.status.toLowerCase() === 'failed' && <XCircle className="h-4 w-4 mr-1" />}
                       {payment.status}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(payment.receiptUrl || '#', '_blank');
-                      }}
-                      className="text-blue-700 hover:text-blue-800"
-                    >
-                      Receipt
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -363,32 +483,32 @@ const Payments: React.FC = () => {
         </div>
         
         {/* Pagination */}
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div className="bg-white px-6 py-4 flex items-center justify-between border-t border-gray-200">
           <div className="flex-1 flex justify-between sm:hidden">
-            <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
               Previous
             </button>
-            <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
               Next
             </button>
           </div>
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to <span className="font-medium">{sortedPayments.length}</span> of{' '}
-                <span className="font-medium">{sortedPayments.length}</span> results
+                Showing <span className="font-semibold">1</span> to <span className="font-semibold">{sortedPayments.length}</span> of{' '}
+                <span className="font-semibold">{sortedPayments.length}</span> results
               </p>
             </div>
             <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+              <nav className="relative z-0 inline-flex rounded-lg shadow-sm -space-x-px" aria-label="Pagination">
+                <button className="relative inline-flex items-center px-3 py-2 rounded-l-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
                   <span className="sr-only">Previous</span>
                   <ChevronUp className="h-5 w-5 rotate-90" />
                 </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-700">
+                <button className="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-semibold text-blue-700">
                   1
                 </button>
-                <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                <button className="relative inline-flex items-center px-3 py-2 rounded-r-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
                   <span className="sr-only">Next</span>
                   <ChevronDown className="h-5 w-5 rotate-90" />
                 </button>
@@ -400,563 +520,344 @@ const Payments: React.FC = () => {
       
       {/* Payment Detail Modal */}
       {selectedPayment && (
-        <div className="fixed z-50 inset-0 overflow-y-auto">
+        <div className="fixed z-50 inset-0 overflow-y-auto" style={{ zIndex: 9999 }}>
+          {console.log('Rendering payment modal for:', selectedPayment)}
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             {/* Background overlay */}
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-900 opacity-75"></div>
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75" 
+              aria-hidden="true"
+              onClick={() => {
+                console.log('Background clicked, closing modal');
+                setSelectedPayment(null);
+              }}
+            >
             </div>
             
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
             {/* Modal content */}
-            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-                <div className="flex items-center justify-between">
+            <div 
+              className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full relative z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-8 py-6">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-white bg-opacity-20">
-                      <DollarSign className="h-6 w-6 text-white" />
+                    <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl mr-4">
+                      <CreditCard className="h-8 w-8 text-white" />
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-xl font-semibold text-white">
-                        Payment Details
-                      </h3>
-                      <p className="text-blue-100 text-sm">
-                        Payment ID: #{selectedPayment.id}
-                      </p>
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">Payment Details</h2>
+                      <p className="text-gray-600">Payment ID: #{selectedPayment.id}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setSelectedPayment(null)}
-                    className="text-white hover:text-blue-100 transition-colors"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleEditPayment(selectedPayment)}
+                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(selectedPayment)}
+                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => {
+                        console.log('Closing payment modal');
+                        setSelectedPayment(null);
+                      }}
+                      className="inline-flex items-center p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <XCircle className="h-6 w-6" />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Content */}
-              <div className="px-6 py-6">
-                {/* Payment Status Banner */}
-                <div className={`mb-6 p-4 rounded-lg border-l-4 ${
-                  selectedPayment.status === 'completed' 
+                {/* Status Banner */}
+                <div className={`mb-8 p-6 rounded-xl border-l-4 ${
+                  selectedPayment.status?.toLowerCase() === 'completed' 
                     ? 'bg-green-50 border-green-400' 
-                    : selectedPayment.status === 'pending'
+                    : selectedPayment.status?.toLowerCase() === 'pending'
                     ? 'bg-yellow-50 border-yellow-400'
+                    : selectedPayment.status?.toLowerCase() === 'refunded'
+                    ? 'bg-blue-50 border-blue-400'
                     : 'bg-red-50 border-red-400'
                 }`}>
                   <div className="flex items-center">
-                    <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
-                      selectedPayment.status === 'completed' 
-                        ? 'bg-green-100' 
-                        : selectedPayment.status === 'pending'
-                        ? 'bg-yellow-100'
-                        : 'bg-red-100'
-                    }`}>
-                      {selectedPayment.status === 'completed' ? (
-                        <svg className="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      ) : selectedPayment.status === 'pending' ? (
-                        <svg className="h-5 w-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg className="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                      )}
+                    {selectedPayment.status?.toLowerCase() === 'completed' && <CheckCircle className="h-6 w-6 text-green-600 mr-3" />}
+                    {selectedPayment.status?.toLowerCase() === 'pending' && <Clock className="h-6 w-6 text-yellow-600 mr-3" />}
+                    {selectedPayment.status?.toLowerCase() === 'refunded' && <RefreshCw className="h-6 w-6 text-blue-600 mr-3" />}
+                    {selectedPayment.status?.toLowerCase() === 'failed' && <XCircle className="h-6 w-6 text-red-600 mr-3" />}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 capitalize">{selectedPayment.status || 'Unknown'}</h3>
+                      <p className="text-sm text-gray-600">
+                        {selectedPayment.status?.toLowerCase() === 'completed' && 'Payment has been successfully processed'}
+                        {selectedPayment.status?.toLowerCase() === 'pending' && 'Payment is awaiting processing'}
+                        {selectedPayment.status?.toLowerCase() === 'refunded' && 'Payment has been refunded to customer'}
+                        {selectedPayment.status?.toLowerCase() === 'failed' && 'Payment processing failed'}
+                        {!selectedPayment.status && 'Payment status unknown'}
+                      </p>
                     </div>
-                    <div className="ml-3">
-                      <h3 className={`text-sm font-medium ${
-                        selectedPayment.status === 'completed' 
-                          ? 'text-green-800' 
-                          : selectedPayment.status === 'pending'
-                          ? 'text-yellow-800'
-                          : 'text-red-800'
-                      }`}>
-                        Payment {selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
+                  </div>
+                </div>
+
+                {/* Main Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column - Payment Information */}
+                  <div className="space-y-6">
+                    {/* Payment Amount */}
+                    <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-xl p-6 border border-blue-200">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <DollarSign className="h-5 w-5 text-blue-600 mr-2" />
+                        Payment Amount
                       </h3>
-                      <p className={`text-sm ${
-                        selectedPayment.status === 'completed' 
-                          ? 'text-green-700' 
-                          : selectedPayment.status === 'pending'
-                          ? 'text-yellow-700'
-                          : 'text-red-700'
-                      }`}>
-                        {selectedPayment.status === 'completed' 
-                          ? 'Payment has been successfully processed'
-                          : selectedPayment.status === 'pending'
-                          ? 'Payment is being processed'
-                          : 'Payment has been refunded'
-                        }
+                      <div className="text-3xl font-bold text-gray-900 mb-2">
+                        ${selectedPayment.amount?.toFixed(2) || '0.00'}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {selectedPayment.currency || 'USD'} • {selectedPayment.payment_method || 'Payment Method'}
                       </p>
                     </div>
-                  </div>
-                </div>
 
-                {/* Payment Amount */}
-                <div className="mb-6 text-center">
-                  <div className="text-3xl font-bold text-gray-900">
-                    ${selectedPayment.amount.toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {selectedPayment.currency || 'USD'}
-                  </div>
-                </div>
-
-                {/* Information Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Customer Information */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                      <svg className="h-4 w-4 mr-2 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                      </svg>
-                      Customer Information
-                    </h4>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Customer Name</p>
-                        <p className="text-sm font-medium text-gray-900">{selectedPayment.customer}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Email Address</p>
-                        <p className="text-sm font-medium text-gray-900">{selectedPayment.email}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Information */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                      <svg className="h-4 w-4 mr-2 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                      </svg>
-                      Payment Information
-                    </h4>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Payment Method</p>
-                        <p className="text-sm font-medium text-gray-900 capitalize">{selectedPayment.paymentMethod}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Payment Type</p>
-                        <p className="text-sm font-medium text-gray-900 capitalize">{selectedPayment.type}</p>
-                      </div>
-                      {selectedPayment.transactionId && (
-                        <div>
-                          <p className="text-xs text-gray-500 uppercase tracking-wide">Transaction ID</p>
-                          <p className="text-sm font-mono text-gray-900">{selectedPayment.transactionId}</p>
+                    {/* Customer Information */}
+                    <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <User className="h-5 w-5 text-gray-600 mr-2" />
+                        Customer Information
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600">Name</span>
+                          <span className="text-sm font-semibold text-gray-900">{selectedPayment.customer || 'N/A'}</span>
                         </div>
-                      )}
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600">Email</span>
+                          <span className="text-sm font-semibold text-gray-900">{selectedPayment.email || 'N/A'}</span>
+                        </div>
+                        {selectedPayment.phone && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-sm font-medium text-gray-600">Phone</span>
+                            <span className="text-sm font-semibold text-gray-900">{selectedPayment.phone}</span>
+                          </div>
+                        )}
+                        {selectedPayment.user_id && (
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-sm font-medium text-gray-600">Customer ID</span>
+                            <span className="text-sm font-semibold text-gray-900">#{selectedPayment.user_id}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Payment Details */}
+                    <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <CreditCard className="h-5 w-5 text-gray-600 mr-2" />
+                        Payment Details
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600">Payment Method</span>
+                          <span className="text-sm font-semibold text-gray-900 capitalize">{selectedPayment.payment_method || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600">Payment Type</span>
+                          <span className="text-sm font-semibold text-gray-900 capitalize">{selectedPayment.type || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600">Transaction Date</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {selectedPayment.date ? new Date(selectedPayment.date).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm font-medium text-gray-600">Transaction Time</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {selectedPayment.date ? new Date(selectedPayment.date).toLocaleTimeString() : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Additional Information */}
+                  <div className="space-y-6">
+                    {/* Payment Description */}
+                    <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <FileText className="h-5 w-5 text-gray-600 mr-2" />
+                        Description
+                      </h3>
+                      <p className="text-gray-700 leading-relaxed">
+                        {selectedPayment.description || 'No description provided'}
+                      </p>
+                    </div>
+
+                    {/* Payment Method Details */}
+                    <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <BarChart3 className="h-5 w-5 text-gray-600 mr-2" />
+                        Payment Method Details
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          {selectedPayment.is_manual && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
+                              <Wrench className="h-4 w-4 mr-1" />
+                              Manual Payment
+                            </span>
+                          )}
+                          {selectedPayment.is_stripe && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                              <CreditCard className="h-4 w-4 mr-1" />
+                              Stripe Payment
+                            </span>
+                          )}
+                        </div>
+                        {selectedPayment.transactionId && (
+                          <div className="flex justify-between items-center py-2 border-t border-gray-100">
+                            <span className="text-sm font-medium text-gray-600">Transaction ID</span>
+                            <span className="text-sm font-semibold text-gray-900 font-mono">{selectedPayment.transactionId}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Receipt Section */}
+                    {selectedPayment.receiptUrl && (
+                      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <Receipt className="h-5 w-5 text-gray-600 mr-2" />
+                          Receipt
+                        </h3>
+                        <button 
+                          onClick={() => window.open(selectedPayment.receiptUrl, '_blank')}
+                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download Receipt
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Payment Details */}
-                <div className="mt-6 bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                    <svg className="h-4 w-4 mr-2 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 2h12v6H6V6z" clipRule="evenodd" />
-                    </svg>
-                    Payment Details
-                  </h4>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide">Description</p>
-                      <p className="text-sm font-medium text-gray-900">{selectedPayment.description}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide">Date & Time</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {new Date(selectedPayment.date).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                    {selectedPayment.is_manual && (
+                {/* Vehicle Details Section - Only show if payment is related to a vehicle */}
+                {selectedPayment.vehicle && (
+                  <div className="mt-8 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl p-6 border border-blue-200 shadow-sm">
+                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                      <Car className="h-6 w-6 text-blue-600 mr-3" />
+                      Related Vehicle
+                    </h4>
+                    
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Entry Type</p>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          Manual Entry
-                        </span>
-                      </div>
-                    )}
-                    {selectedPayment.is_stripe && (
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Payment Gateway</p>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Stripe Payment
-                        </span>
-                      </div>
-                    )}
-                    {selectedPayment.vehicle && (
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Vehicle</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <h5 className="text-lg font-semibold text-gray-900 mb-2">
                           {selectedPayment.vehicle.year} {selectedPayment.vehicle.make} {selectedPayment.vehicle.model}
-                          {selectedPayment.vehicle.stockNumber && (
-                            <span className="text-gray-500 ml-2">(Stock #{selectedPayment.vehicle.stockNumber})</span>
-                          )}
+                        </h5>
+                        <p className="text-sm text-gray-600">
+                          {selectedPayment.vehicle.stockNumber && `Stock #${selectedPayment.vehicle.stockNumber}`}
+                          {selectedPayment.vehicle.stockNumber && selectedPayment.vehicle.vin && ' • '}
+                          {selectedPayment.vehicle.vin && `VIN: ${selectedPayment.vehicle.vin}`}
                         </p>
                       </div>
-                    )}
+                      
+                      <button
+                        onClick={() => handleViewVehicleDetails(selectedPayment.vehicle.id || selectedPayment.vehicle.vehicle_id)}
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        <ExternalLink className="h-5 w-5 mr-2" />
+                        View Vehicle Details
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Footer Actions */}
-              <div className="bg-gray-50 px-6 py-4 flex flex-col sm:flex-row sm:justify-end sm:space-x-3 space-y-2 sm:space-y-0">
-                {selectedPayment.receiptUrl && (
-                  <button
-                    type="button"
-                    onClick={() => window.open(selectedPayment.receiptUrl, '_blank')}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    View Receipt
-                  </button>
                 )}
-                {selectedPayment.status === 'completed' && (
-                  <button
-                    type="button"
-                    onClick={handleRefund}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Process Refund
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setSelectedPayment(null)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                >
-                  Close
-                </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+
       
-      {/* Add Manual Payment Modal */}
-      {showAddModal && (
-        <div className="fixed z-50 inset-0 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            {/* Background overlay */}
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-900 opacity-75"></div>
-            </div>
-            
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
-            {/* Modal content */}
-            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-white bg-opacity-20">
-                      <Plus className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-xl font-semibold text-white">
-                        Add Manual Payment
-                      </h3>
-                      <p className="text-blue-100 text-sm">
-                        Record a payment manually for a customer
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowAddModal(false)}
-                    className="text-white hover:text-blue-100 transition-colors"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
+      {/* Manual Payment Modal */}
+      {showManualPaymentModal && (
+        <ManualPaymentModal
+          isOpen={showManualPaymentModal}
+          onClose={() => setShowManualPaymentModal(false)}
+          onSuccess={() => {
+            setShowManualPaymentModal(false);
+            fetchAllPayments();
+          }}
+        />
+      )}
 
-              {/* Form */}
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                setAddFormError(null);
-                setAddFormLoading(true);
-                
-                console.log('Form validation - user_id:', addForm.user_id, 'type:', typeof addForm.user_id);
-                console.log('Form validation - amount:', addForm.amount);
-                console.log('Form validation - payment_method:', addForm.payment_method);
-                console.log('Form validation - description:', addForm.description);
-                console.log('Form validation - status:', addForm.status);
-                
-                if (!addForm.user_id || !addForm.amount || !addForm.payment_method || !addForm.description || !addForm.status) {
-                  setAddFormError('All required fields must be filled.');
-                  setAddFormLoading(false);
-                  return;
-                }
-                
-                // Convert payment type to appropriate IDs
-                let vehicle_id = null;
-                let service_id = null;
-                
-                if (addForm.type === 'vehicle_hold' || addForm.type === 'vehicle_purchase') {
-                  // For vehicle payments, we'll need to get the vehicle ID from the description or add it later
-                  // For now, we'll just use the description to indicate the type
-                  vehicle_id = null; // This would need to be implemented based on your business logic
-                } else if (addForm.type === 'service') {
-                  service_id = null; // This would need to be implemented based on your business logic
-                }
-                
-                // Validate user_id is a number
-                const userId = parseInt(addForm.user_id);
-                if (isNaN(userId)) {
-                  setAddFormError('Please select a valid customer.');
-                  setAddFormLoading(false);
-                  return;
-                }
+      {/* Edit Payment Modal */}
+      {showEditModal && editingPayment && (
+        <ManualPaymentModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingPayment(null);
+          }}
+          onSuccess={(updatedPayment) => {
+            setShowEditModal(false);
+            setEditingPayment(null);
+            if (updatedPayment) {
+              // Update the specific payment in the list
+              setPayments(prevPayments => 
+                prevPayments.map(payment => 
+                  payment.id === updatedPayment.id ? updatedPayment : payment
+                )
+              );
+            } else {
+              // Fallback to refreshing all payments
+              fetchAllPayments();
+            }
+          }}
+          editingPayment={editingPayment}
+        />
+      )}
 
-                const paymentData = {
-                  user_id: userId,
-                  amount: parseFloat(addForm.amount),
-                  payment_method: addForm.payment_method,
-                  description: addForm.description,
-                  status: addForm.status,
-                  date: addForm.date,
-                  vehicle_id: vehicle_id,
-                  service_id: service_id
-                };
-                
-                console.log('Sending payment data:', paymentData);
-                const response = await addManualPayment(paymentData);
-                console.log('Payment response:', response);
-                
-                if (response.success) {
-                  setShowAddModal(false);
-                  setAddForm({ 
-                    user_id: '', 
-                    amount: '', 
-                    payment_method: 'cash', 
-                    description: '', 
-                    status: 'completed', 
-                    date: new Date().toISOString().split('T')[0],
-                    type: 'service'
-                  });
-                  fetchAllPayments();
-                } else {
-                  setAddFormError(response.error || 'Failed to add manual payment');
-                }
-                setAddFormLoading(false);
-              }} className="p-6">
-                
-                {addFormError && (
-                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <p className="text-sm text-red-800">{addFormError}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+      {/* Export Modal */}
+      {showExportModal && (
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          payments={getExportData()}
+          onExportSuccess={handleExportSuccess}
+          onExportError={handleExportError}
+        />
+      )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Customer Selection */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <User className="h-4 w-4 mr-2 text-gray-500" />
-                      Customer *
-                    </label>
-                    <select 
-                      className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                      value={addForm.user_id} 
-                      onChange={e => {
-                        console.log('Selected user_id:', e.target.value);
-                        setAddForm(f => ({ ...f, user_id: e.target.value }));
-                      }} 
-                      required 
-                      disabled={addFormLoading || usersLoading}
-                    >
-                      <option value="">Select a customer ({users.length} users loaded)</option>
-                      {users.map(user => {
-                        console.log('User data:', user);
-                        return (
-                          <option key={user.userId || user.user_id} value={user.userId || user.user_id}>
-                            {user.displayName || user.email}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    {usersLoading && (
-                      <p className="mt-1 text-sm text-gray-500">Loading customers...</p>
-                    )}
-                  </div>
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <DeleteConfirmationModal
+          isOpen={showDeleteConfirmation}
+          onClose={() => setShowDeleteConfirmation(false)}
+          onConfirm={handleDeletePayment}
+          isLoading={isDeleting}
+          title="Delete Payment"
+          message={`Are you sure you want to delete payment #${selectedPayment?.id}? This action cannot be undone.`}
+        />
+      )}
 
-                  {/* Payment Amount */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <DollarSign className="h-4 w-4 mr-2 text-gray-500" />
-                      Amount *
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-gray-500">$</span>
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        min="0"
-                        className="block w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100" 
-                        value={addForm.amount} 
-                        onChange={e => setAddForm(f => ({ ...f, amount: e.target.value }))} 
-                        required 
-                        disabled={addFormLoading}
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Payment Method */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <CreditCard className="h-4 w-4 mr-2 text-gray-500" />
-                      Payment Method *
-                    </label>
-                    <select 
-                      className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                      value={addForm.payment_method} 
-                      onChange={e => setAddForm(f => ({ ...f, payment_method: e.target.value }))} 
-                      required 
-                      disabled={addFormLoading}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="credit_card">Credit Card</option>
-                      <option value="debit_card">Debit Card</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="check">Check</option>
-                      <option value="money_order">Money Order</option>
-                    </select>
-                  </div>
-
-                  {/* Payment Type */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <FileTextIcon className="h-4 w-4 mr-2 text-gray-500" />
-                      Payment Type *
-                    </label>
-                    <select 
-                      className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                      value={addForm.type} 
-                      onChange={e => setAddForm(f => ({ ...f, type: e.target.value }))} 
-                      required 
-                      disabled={addFormLoading}
-                    >
-                      <option value="service">Service</option>
-                      <option value="vehicle_hold">Vehicle Hold</option>
-                      <option value="vehicle_purchase">Vehicle Purchase</option>
-                      <option value="deposit">Deposit</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  {/* Payment Status */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <svg className="h-4 w-4 mr-2 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Status *
-                    </label>
-                    <select 
-                      className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                      value={addForm.status} 
-                      onChange={e => setAddForm(f => ({ ...f, status: e.target.value }))} 
-                      required 
-                      disabled={addFormLoading}
-                    >
-                      <option value="completed">Completed</option>
-                      <option value="pending">Pending</option>
-                      <option value="refunded">Refunded</option>
-                    </select>
-                  </div>
-
-                  {/* Date */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                      Date
-                    </label>
-                    <input 
-                      type="date" 
-                      className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100" 
-                      value={addForm.date} 
-                      onChange={e => setAddForm(f => ({ ...f, date: e.target.value }))} 
-                      disabled={addFormLoading}
-                    />
-                  </div>
-
-                  {/* Description */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <FileTextIcon className="h-4 w-4 mr-2 text-gray-500" />
-                      Description *
-                    </label>
-                    <textarea 
-                      className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 resize-none" 
-                      rows={3}
-                      value={addForm.description} 
-                      onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))} 
-                      required 
-                      disabled={addFormLoading}
-                      placeholder="Enter payment description..."
-                    />
-                  </div>
-                </div>
-
-                {/* Footer Actions */}
-                <div className="mt-8 flex flex-col sm:flex-row sm:justify-end sm:space-x-3 space-y-2 sm:space-y-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={addFormLoading}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {addFormLoading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Adding Payment...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Payment
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+      {/* Toast */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setToastMessage(null)}
+        />
       )}
     </div>
   );

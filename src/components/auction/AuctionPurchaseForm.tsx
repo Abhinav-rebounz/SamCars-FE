@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { addAuctionPurchase, updateAuctionPurchase } from '../../services/auction';
-import { X } from 'lucide-react';
+import { 
+  X, 
+  DollarSign, 
+  Car, 
+  Calendar, 
+  Tag, 
+  Image as ImageIcon,
+  CheckCircle,
+  AlertCircle,
+  Upload,
+  Trash2,
+  Plus,
+  FileText,
+  Settings,
+  Star
+} from 'lucide-react';
 
 interface ExistingImage {
   id?: string;
@@ -269,528 +284,682 @@ const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-7xl mx-auto">
-      {error && (
-        <div className="text-red-500 p-2 bg-red-50 rounded flex justify-between items-center">
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="text-red-600 hover:text-red-800"
-          >
-            ×
-          </button>
+    <div className="min-h-screen bg-gray-50 py-8">
+      {/* Fixed Alert Messages at Top of Page */}
+      {success && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
+          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-semibold text-green-800">Success!</h3>
+                  <p className="text-xs text-green-700 mt-1">{success}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSuccess(null)}
+                className="flex-shrink-0 ml-4 text-green-600 hover:text-green-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Auction Purchase Details */}
-      <div className="bg-blue-50 p-4 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-blue-900 mb-4">Auction Purchase Details</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Purchase Date</label>
-            <input
-              type="date"
-              name="purchase_date"
-              value={formData.purchase_date}
-              onChange={handleInputChange}
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Purchase Price</label>
-            <input
-              type="number"
-              name="purchase_price"
-              value={formData.purchase_price}
-              onChange={handleInputChange}
-              required
-              min="0"
-              step="0.01"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Additional Costs</label>
-            <input
-              type="number"
-              name="additional_costs"
-              value={formData.additional_costs}
-              onChange={handleInputChange}
-              min="0"
-              step="0.01"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">List Price</label>
-            <input
-              type="number"
-              name="list_price"
-              value={formData.list_price}
-              onChange={handleInputChange}
-              min="0"
-              step="0.01"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Sold Price</label>
-            <input
-              type="number"
-              name="sold_price"
-              value={formData.sold_price}
-              onChange={(e) => {
-                const value = e.target.value;
-                setFormData(prev => ({
-                  ...prev,
-                  sold_price: value,
-                  status: value && parseFloat(value) > 0 ? 'sold' : prev.status
-                }));
-              }}
-              min="0"
-              step="0.01"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
+      {error && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
+          <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-semibold text-red-800">Error</h3>
+                  <p className="text-xs text-red-700 mt-1">{error}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="flex-shrink-0 ml-4 text-red-600 hover:text-red-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Vehicle Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Make *</label>
-          <input
-            type="text"
-            name="make"
-            value={formData.make}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+      <div className="container mx-auto px-4">
+        <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-8">
+          {/* Header Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl mr-4">
+                <Car className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {isEditing ? 'Edit Auction Purchase' : 'Add Auction Purchase'}
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {isEditing ? 'Update auction purchase details' : 'Record a new vehicle purchase from auction'}
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Model *</label>
-          <input
-            type="text"
-            name="model"
-            value={formData.model}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+          {/* Auction Purchase Details Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center mb-6">
+              <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                <DollarSign className="h-5 w-5 text-blue-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Auction Purchase Details</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Calendar className="h-4 w-4 inline mr-2 text-gray-500" />
+                  Purchase Date *
+                </label>
+                <input
+                  type="date"
+                  name="purchase_date"
+                  value={formData.purchase_date}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Year *</label>
-          <input
-            type="number"
-            name="year"
-            value={formData.year}
-            onChange={handleInputChange}
-            required
-            min="1900"
-            max={new Date().getFullYear() + 1}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="h-4 w-4 inline mr-2 text-gray-500" />
+                  Purchase Price *
+                </label>
+                <input
+                  type="number"
+                  name="purchase_price"
+                  value={formData.purchase_price}
+                  onChange={handleInputChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Mileage *</label>
-          <input
-            type="number"
-            name="mileage"
-            value={formData.mileage}
-            onChange={handleInputChange}
-            required
-            min="0"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="h-4 w-4 inline mr-2 text-gray-500" />
+                  Additional Costs
+                </label>
+                <input
+                  type="number"
+                  name="additional_costs"
+                  value={formData.additional_costs}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">VIN *</label>
-          <input
-            type="text"
-            name="vin"
-            value={formData.vin}
-            onChange={handleInputChange}
-            required
-            maxLength={17}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="h-4 w-4 inline mr-2 text-gray-500" />
+                  List Price
+                </label>
+                <input
+                  type="number"
+                  name="list_price"
+                  value={formData.list_price}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Stock Number *</label>
-          <input
-            type="text"
-            name="stock_number"
-            value={formData.stock_number}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="h-4 w-4 inline mr-2 text-gray-500" />
+                  Sold Price
+                </label>
+                <input
+                  type="number"
+                  name="sold_price"
+                  value={formData.sold_price}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      sold_price: value,
+                      status: value && parseFloat(value) > 0 ? 'sold' : prev.status
+                    }));
+                  }}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Transmission *</label>
-          <select
-            name="transmission"
-            value={formData.transmission}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="">Select transmission</option>
-            <option value="automatic">Automatic</option>
-            <option value="manual">Manual</option>
-            <option value="cvt">CVT</option>
-            <option value="semi_automatic">Semi-Automatic</option>
-          </select>
-        </div>
+          {/* Vehicle Details Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center mb-6">
+              <div className="p-2 bg-green-100 rounded-lg mr-3">
+                <Car className="h-5 w-5 text-green-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Vehicle Information</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Make *</label>
+                <input
+                  type="text"
+                  name="make"
+                  value={formData.make}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g., Toyota"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Body Type *</label>
-          <select
-            name="body_type"
-            value={formData.body_type}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="">Select body type</option>
-            <option value="sedan">Sedan</option>
-            <option value="suv">SUV</option>
-            <option value="truck">Truck</option>
-            <option value="coupe">Coupe</option>
-            <option value="convertible">Convertible</option>
-            <option value="hatchback">Hatchback</option>
-            <option value="minivan">Minivan</option>
-            <option value="van">Van</option>
-          </select>
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Model *</label>
+                <input
+                  type="text"
+                  name="model"
+                  value={formData.model}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g., Camry"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Fuel Type *</label>
-          <select
-            name="fuel_type"
-            value={formData.fuel_type}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="">Select fuel type</option>
-            <option value="gasoline">Gasoline</option>
-            <option value="diesel">Diesel</option>
-            <option value="electric">Electric</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="plug_in_hybrid">Plug-in Hybrid</option>
-          </select>
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Year *</label>
+                <input
+                  type="number"
+                  name="year"
+                  value={formData.year}
+                  onChange={handleInputChange}
+                  required
+                  min="1900"
+                  max={new Date().getFullYear() + 1}
+                  placeholder="2023"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Condition *</label>
-          <select
-            name="condition"
-            value={formData.condition}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="">Select condition</option>
-            <option value="new">New</option>
-            <option value="used">Used</option>
-            <option value="certified_pre_owned">Certified Pre-Owned</option>
-            <option value="excellent">Excellent</option>
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-          </select>
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Mileage *</label>
+                <input
+                  type="number"
+                  name="mileage"
+                  value={formData.mileage}
+                  onChange={handleInputChange}
+                  required
+                  min="0"
+                  placeholder="50000"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Status *</label>
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="">Select status</option>
-            <option value="available">Available</option>
-            <option value="sold">Sold</option>
-            <option value="pending">Pending</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="reserved">Reserved</option>
-          </select>
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">VIN *</label>
+                <input
+                  type="text"
+                  name="vin"
+                  value={formData.vin}
+                  onChange={handleInputChange}
+                  required
+                  maxLength={17}
+                  placeholder="1HGBH41JXMN109186"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors font-mono"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Carfax Report Link</label>
-          <input
-            type="url"
-            name="carfax_link"
-            value={formData.carfax_link}
-            onChange={handleInputChange}
-            placeholder="https://www.carfax.com/vehicle/..."
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Stock Number *</label>
+                <input
+                  type="text"
+                  name="stock_number"
+                  value={formData.stock_number}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="STK123456"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Exterior Color</label>
-          <input
-            type="text"
-            name="exterior_color"
-            value={formData.exterior_color}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Transmission *</label>
+                <select
+                  name="transmission"
+                  value={formData.transmission}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select transmission</option>
+                  <option value="automatic">Automatic</option>
+                  <option value="manual">Manual</option>
+                  <option value="cvt">CVT</option>
+                  <option value="semi_automatic">Semi-Automatic</option>
+                </select>
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Interior Color</label>
-          <input
-            type="text"
-            name="interior_color"
-            value={formData.interior_color}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Body Type *</label>
+                <select
+                  name="body_type"
+                  value={formData.body_type}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select body type</option>
+                  <option value="sedan">Sedan</option>
+                  <option value="suv">SUV</option>
+                  <option value="truck">Truck</option>
+                  <option value="coupe">Coupe</option>
+                  <option value="convertible">Convertible</option>
+                  <option value="hatchback">Hatchback</option>
+                  <option value="minivan">Minivan</option>
+                  <option value="van">Van</option>
+                </select>
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Engine</label>
-          <input
-            type="text"
-            name="engine"
-            value={formData.engine}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Fuel Type *</label>
+                <select
+                  name="fuel_type"
+                  value={formData.fuel_type}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select fuel type</option>
+                  <option value="gasoline">Gasoline</option>
+                  <option value="diesel">Diesel</option>
+                  <option value="electric">Electric</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="plug_in_hybrid">Plug-in Hybrid</option>
+                </select>
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Location</label>
-          <input
-            type="text"
-            name="location"
-            value={formData.location}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Condition *</label>
+                <select
+                  name="condition"
+                  value={formData.condition}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select condition</option>
+                  <option value="new">New</option>
+                  <option value="used">Used</option>
+                  <option value="certified_pre_owned">Certified Pre-Owned</option>
+                  <option value="excellent">Excellent</option>
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                </select>
+              </div>
 
-      {/* Featured checkbox */}
-      <div className="flex items-center mt-4">
-        <input
-          type="checkbox"
-          name="is_featured"
-          checked={formData.is_featured}
-          onChange={handleInputChange}
-          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 mr-2"
-        />
-        <label className="text-sm font-medium text-gray-700">Mark as Featured</label>
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Status *</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select status</option>
+                  <option value="available">Available</option>
+                  <option value="sold">Sold</option>
+                  <option value="pending">Pending</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="reserved">Reserved</option>
+                </select>
+              </div>
 
-      {/* Features */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Features</label>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {['Bluetooth', 'Backup Camera', 'Navigation', 'Heated Seats', 'Sunroof', 'Remote Start', 'Blind Spot Monitor', 'Apple CarPlay', 'Android Auto'].map(feature => (
-            <label key={feature} className="inline-flex items-center">
-              <input
-                type="checkbox"
-                name="features"
-                value={feature}
-                checked={formData.features.includes(feature)}
-                onChange={handleInputChange}
-                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 mr-2"
-              />
-              <span className="text-sm text-gray-700">{feature}</span>
-            </label>
-          ))}
-        </div>
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Exterior Color</label>
+                <input
+                  type="text"
+                  name="exterior_color"
+                  value={formData.exterior_color}
+                  onChange={handleInputChange}
+                  placeholder="e.g., White"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-      {/* Tags */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History'].map(tag => (
-            <label key={tag} className="inline-flex items-center">
-              <input
-                type="checkbox"
-                name="tags"
-                value={tag}
-                checked={formData.tags.includes(tag)}
-                onChange={handleInputChange}
-                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 mr-2"
-              />
-              <span className="text-sm text-gray-700">{tag}</span>
-            </label>
-          ))}
-        </div>
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Interior Color</label>
+                <input
+                  type="text"
+                  name="interior_color"
+                  value={formData.interior_color}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Black"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Description</label>
-        <textarea
-          name="description"
-          value={formData.description}
-          onChange={handleInputChange}
-          rows={4}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-        />
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Engine</label>
+                <input
+                  type="text"
+                  name="engine"
+                  value={formData.engine}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 2.5L 4-Cylinder"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-      {/* Notes */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Notes</label>
-        <textarea
-          name="notes"
-          value={formData.notes}
-          onChange={handleInputChange}
-          rows={4}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="Add any additional notes about the auction purchase..."
-        />
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Auction House Name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
 
-      {/* Images */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Images</label>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleImageChange}
-          className="mt-1 block w-full"
-        />
-        <p className="text-sm text-gray-500 mt-1">
-          {isEditing 
-            ? "Select new images to add to existing images. Use the × button on existing images to remove them."
-            : "Select multiple images to upload. Supported formats: JPG, PNG, GIF"
-          }
-        </p>
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Carfax Report Link</label>
+                <input
+                  type="url"
+                  name="carfax_link"
+                  value={formData.carfax_link}
+                  onChange={handleInputChange}
+                  placeholder="https://www.carfax.com/vehicle/..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+          </div>
 
-      {/* Image Preview */}
-      {(existingImages.length > 0 || previewUrls.length > 0) && (
-        <div>
-          <h3 className="text-lg font-medium text-gray-700 mb-3">Image Preview</h3>
-          
-          {isEditing && existingImages.length > 0 && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                <strong>Image Management:</strong> New images will be added to your existing images. 
-                To remove existing images, click the × button on them. Images marked with red border will be deleted.
+          {/* Features & Tags Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center mb-6">
+              <div className="p-2 bg-purple-100 rounded-lg mr-3">
+                <Settings className="h-5 w-5 text-purple-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Features & Tags</h2>
+            </div>
+
+            {/* Featured Checkbox */}
+            <div className="mb-6">
+              <label className="flex items-center p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_featured"
+                  checked={formData.is_featured}
+                  onChange={handleInputChange}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <div className="ml-3 flex items-center">
+                  <Star className="h-5 w-5 text-yellow-500 mr-2" />
+                  <span className="text-sm font-semibold text-gray-700">Mark as Featured Vehicle</span>
+                </div>
+              </label>
+            </div>
+
+            {/* Features */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-4">Vehicle Features</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {['Bluetooth', 'Backup Camera', 'Navigation', 'Heated Seats', 'Sunroof', 'Remote Start', 'Blind Spot Monitor', 'Apple CarPlay', 'Android Auto'].map(feature => (
+                  <label key={feature} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="features"
+                      value={feature}
+                      checked={formData.features.includes(feature)}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-700">{feature}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-4">Vehicle Tags</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History'].map(tag => (
+                  <label key={tag} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="tags"
+                      value={tag}
+                      checked={formData.tags.includes(tag)}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-700">{tag}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Description & Notes Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center mb-6">
+              <div className="p-2 bg-orange-100 rounded-lg mr-3">
+                <FileText className="h-5 w-5 text-orange-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Description & Notes</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Vehicle Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={6}
+                  placeholder="Describe the vehicle's features, condition, and any notable details..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Auction Notes</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  rows={6}
+                  placeholder="Add any additional notes about the auction purchase, repairs needed, or special considerations..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Images Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center mb-6">
+              <div className="p-2 bg-indigo-100 rounded-lg mr-3">
+                <ImageIcon className="h-5 w-5 text-indigo-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Vehicle Images</h2>
+            </div>
+
+            {/* File Upload */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Upload Images</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageChange}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG, GIF up to 10MB each
+                  </p>
+                </label>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                {isEditing 
+                  ? "Select new images to add to existing images. Use the × button on existing images to remove them."
+                  : "Select multiple images to upload. Supported formats: JPG, PNG, GIF"
+                }
               </p>
             </div>
-          )}
-          
-          {/* Existing Images */}
-          {existingImages.length > 0 && (
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-gray-600 mb-2">Current Images</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {existingImages.map((image, idx) => (
-                  <div key={`existing-${idx}`} className="relative group">
-                    {!imageLoadErrors.has(idx) ? (
-                      <img
-                        src={image.url}
-                        alt={`Existing vehicle image ${idx + 1}`}
-                        className={`w-full h-32 object-cover rounded-lg border-2 ${
-                          image.toDelete ? 'border-red-300 opacity-50' : 'border-gray-200'
-                        }`}
-                        onError={() => handleImageError(idx, 'existing')}
-                      />
-                    ) : (
-                      <div className="w-full h-32 bg-gray-200 rounded-lg border-2 border-gray-300 flex items-center justify-center">
-                        <span className="text-gray-500 text-sm">Failed to load</span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => toggleExistingImageForDeletion(idx)}
-                      className={`absolute top-2 right-2 p-1 rounded-full ${
-                        image.toDelete 
-                          ? 'bg-green-500 text-white hover:bg-green-600' 
-                          : 'bg-red-500 text-white hover:bg-red-600'
-                      } transition-colors duration-200`}
-                      title={image.toDelete ? 'Keep image' : 'Remove image'}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                    <div className={`absolute bottom-2 left-2 text-xs px-2 py-1 rounded ${
-                      image.toDelete ? 'bg-red-500 text-white' : 'bg-gray-500 text-white'
-                    }`}>
-                      {image.toDelete ? 'To Delete' : 'Current'}
+
+            {/* Image Preview */}
+            {(existingImages.length > 0 || previewUrls.length > 0) && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Image Preview</h3>
+                
+                {isEditing && existingImages.length > 0 && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <p className="text-sm text-blue-800">
+                      <strong>Image Management:</strong> New images will be added to your existing images. 
+                      To remove existing images, click the × button on them. Images marked with red border will be deleted.
+                    </p>
+                  </div>
+                )}
+                
+                {/* Existing Images */}
+                {existingImages.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-gray-600 mb-3">Current Images</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {existingImages.map((image, idx) => (
+                        <div key={`existing-${idx}`} className="relative group">
+                          {!imageLoadErrors.has(idx) ? (
+                            <img
+                              src={image.url}
+                              alt={`Existing vehicle image ${idx + 1}`}
+                              className={`w-full h-32 object-cover rounded-xl border-2 ${
+                                image.toDelete ? 'border-red-300 opacity-50' : 'border-gray-200'
+                              }`}
+                              onError={() => handleImageError(idx, 'existing')}
+                            />
+                          ) : (
+                            <div className="w-full h-32 bg-gray-200 rounded-xl border-2 border-gray-300 flex items-center justify-center">
+                              <span className="text-gray-500 text-sm">Failed to load</span>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => toggleExistingImageForDeletion(idx)}
+                            className={`absolute top-2 right-2 p-1 rounded-full ${
+                              image.toDelete 
+                                ? 'bg-green-500 text-white hover:bg-green-600' 
+                                : 'bg-red-500 text-white hover:bg-red-600'
+                            } transition-colors duration-200`}
+                            title={image.toDelete ? 'Keep image' : 'Remove image'}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <div className={`absolute bottom-2 left-2 text-xs px-2 py-1 rounded-full ${
+                            image.toDelete ? 'bg-red-500 text-white' : 'bg-gray-500 text-white'
+                          }`}>
+                            {image.toDelete ? 'To Delete' : 'Current'}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                )}
 
-          {/* New Images */}
-          {previewUrls.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium text-blue-600 mb-2">New Images</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {previewUrls.map((url, idx) => (
-                  <div key={`preview-${idx}`} className="relative group">
-                    <img
-                      src={url}
-                      alt={`New vehicle image ${idx + 1}`}
-                      className="w-full h-32 object-cover rounded-lg border-2 border-blue-200"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeNewImage(idx)}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors duration-200"
-                      title="Remove image"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                    <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                      New
+                {/* New Images */}
+                {previewUrls.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-600 mb-3">New Images</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {previewUrls.map((url, idx) => (
+                        <div key={`preview-${idx}`} className="relative group">
+                          <img
+                            src={url}
+                            alt={`New vehicle image ${idx + 1}`}
+                            className="w-full h-32 object-cover rounded-xl border-2 border-blue-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeNewImage(idx)}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors duration-200"
+                            title="Remove image"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                            New
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
 
-      {/* Form Actions */}
-      <div className="flex justify-end space-x-4 pt-6">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          {loading ? 'Saving...' : isEditing ? 'Update Auction Purchase' : 'Add Auction Purchase'}
-        </button>
+          {/* Form Actions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    {isEditing ? 'Updating...' : 'Saving...'}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    {isEditing ? 'Update Auction Purchase' : 'Add Auction Purchase'}
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
-    </form>
+    </div>
   );
 };
 
