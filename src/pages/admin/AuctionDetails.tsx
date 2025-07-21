@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Image as ImageIcon, ChevronLeft, ChevronRight, Trash2, FileText, AlertTriangle, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { ArrowLeft, Edit, Image as ImageIcon, ChevronLeft, ChevronRight, Trash2, FileText, AlertTriangle } from 'lucide-react';
 import { getAuctionById, deleteAuction } from '../../services/auction';
 import AuctionPurchaseForm from '../../components/auction/AuctionPurchaseForm';
+import AlertState from '../../components/ErrorState';
 
 interface AuctionPurchase {
   id: string;
@@ -160,54 +161,16 @@ const AuctionDetails: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Fixed Alert Messages at Top of Page */}
-      {successMessage && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
-          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-semibold text-green-800">Success!</h3>
-                  <p className="text-xs text-green-700 mt-1">{successMessage}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSuccessMessage(null)}
-                className="flex-shrink-0 ml-4 text-green-600 hover:text-green-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
-          <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-semibold text-red-800">Error</h3>
-                  <p className="text-xs text-red-700 mt-1">{error}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="flex-shrink-0 ml-4 text-red-600 hover:text-red-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Alert Messages */}
+      <AlertState
+        success={successMessage}
+        error={error}
+        variant="server"
+        onClose={() => {
+          setSuccessMessage(null);
+          setError(null);
+        }}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 

@@ -1,3 +1,11 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getInventory, deleteVehicle } from '../../services/inventory';
+import { Vehicle as VehicleType } from '../../types/vehicle';
+import AddVehicleForm from '../../components/inventory/AddVehicleForm';
+import LoadingState from '../../components/LoadingState';
+import AlertState from '../../components/ErrorState';
+import useDebounce from '../../hooks/useDebounce';
 import {
   ChevronDown,
   ChevronUp,
@@ -14,22 +22,15 @@ import {
   Tag,
   Eye,
   MoreVertical,
+  Clock,
+  RefreshCw,
   CheckCircle,
   AlertCircle,
-  Clock,
   X
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL, API_ENDPOINTS, api } from '../../config/api';
-import { getInventory, deleteVehicle } from '../../services/inventory';
-import { Vehicle as VehicleType } from '../../types/vehicle';
-import AddVehicleForm from '../../components/inventory/AddVehicleForm';
-import useDebounce from '../../hooks/useDebounce';
 
 type Vehicle = VehicleType;
 
-// Define pagination data from API
 interface Pagination {
   current_page: number;
   total_pages: number;
@@ -56,6 +57,8 @@ const Inventory: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [formSuccessMessage, setFormSuccessMessage] = useState<string | null>(null);
+  const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
 
   // Debounce search term
@@ -63,8 +66,29 @@ const Inventory: React.FC = () => {
 
   const navigate = useNavigate();
 
+  console.log('Inventory component rendering with state:', { 
+    loading, 
+    error, 
+    vehiclesCount: vehicles.length,
+    searchInput,
+    sortField,
+    sortDirection,
+    currentPage,
+    filterStatus,
+    pagination
+  });
+
   // Fetch vehicles from API
   const fetchVehicles = async () => {
+    console.log('Fetching vehicles with filters:', {
+      search: debouncedSearch,
+      sort_by: sortField,
+      sort_order: sortDirection,
+      page: currentPage,
+      limit: itemsPerPage,
+      status: filterStatus
+    });
+    
     setLoading(true);
     setError(null);
     try {
@@ -77,6 +101,7 @@ const Inventory: React.FC = () => {
         ...(filterStatus && { status: filterStatus }),
       };
       const response = await getInventory(filters);
+      console.log('API response:', response);
       if (response.success && response.vehicles) {
         setVehicles(response.vehicles);
         setPagination(response.pagination);
@@ -84,6 +109,7 @@ const Inventory: React.FC = () => {
         setError(response.error || 'Failed to fetch vehicles');
       }
     } catch (err) {
+      console.error('Error fetching vehicles:', err);
       setError('Failed to fetch vehicles');
     } finally {
       setLoading(false);
@@ -181,28 +207,30 @@ const Inventory: React.FC = () => {
 
   const handleEdit = (vehicle: Vehicle) => {
     console.log('Editing vehicle:', vehicle);
-    console.log('Setting selectedVehicle and showEditModal to true');
     setSelectedVehicle(vehicle);
     setShowEditModal(true);
-    console.log('Edit modal should now be visible');
   };
 
   const handleEditComplete = () => {
     setShowEditModal(false);
     setSelectedVehicle(null);
-    setSuccessMessage('Vehicle updated successfully!');
     fetchVehicles(); // Refresh the list after edit
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMessage(null), 3000);
+    // Clear form messages after 3 seconds
+    setTimeout(() => {
+      setFormSuccessMessage(null);
+      setFormErrorMessage(null);
+    }, 3000);
   };
 
   const handleAddComplete = () => {
     setShowAddModal(false);
     setError(null); // Clear any previous error
-    setSuccessMessage('Vehicle added successfully!');
     fetchVehicles(); // Refresh the list after add
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMessage(null), 3000);
+    // Clear form messages after 3 seconds
+    setTimeout(() => {
+      setFormSuccessMessage(null);
+      setFormErrorMessage(null);
+    }, 3000);
   };
 
   const handleImageError = (vehicleId: string) => {
@@ -234,53 +262,66 @@ const Inventory: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Fixed Alert Messages at Top of Page */}
-      {successMessage && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
-          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-semibold text-green-800">Success!</h3>
-                  <p className="text-xs text-green-700 mt-1">{successMessage}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSuccessMessage(null)}
-                className="flex-shrink-0 ml-4 text-green-600 hover:text-green-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      {/* Form Success/Error Messages - Top of Page */}
+      {formSuccessMessage && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-100 border border-green-400 text-green-700 px-6 py-4 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium">{formSuccessMessage}</span>
             </div>
+            <button
+              onClick={() => setFormSuccessMessage(null)}
+              className="ml-4 text-green-700 hover:text-green-900"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
 
-      {error && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
-          <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-semibold text-red-800">Error</h3>
-                  <p className="text-xs text-red-700 mt-1">{error}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="flex-shrink-0 ml-4 text-red-600 hover:text-red-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      {formErrorMessage && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium">{formErrorMessage}</span>
             </div>
+            <button
+              onClick={() => setFormErrorMessage(null)}
+              className="ml-4 text-red-700 hover:text-red-900"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
         </div>
+      )}
+
+      {/* Success Alert */}
+      {successMessage && (
+        <AlertState
+          variant="success"
+          success={successMessage}
+          onClose={() => setSuccessMessage(null)}
+        />
+      )}
+
+      {/* Error Alert */}
+      {error && (
+        <AlertState
+          variant="server"
+          error={error}
+          onClose={() => setError(null)}
+          onRetry={fetchVehicles}
+        />
       )}
 
       <div className="container mx-auto px-4 py-8">
@@ -307,8 +348,6 @@ const Inventory: React.FC = () => {
             </button>
           </div>
         </div>
-
-
 
         {/* Filters and Search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
@@ -350,6 +389,7 @@ const Inventory: React.FC = () => {
                   onChange={handleItemsPerPageChange}
                   className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
+                  <option value="5">5 per page</option>
                   <option value="10">10 per page</option>
                   <option value="25">25 per page</option>
                   <option value="50">50 per page</option>
@@ -379,25 +419,38 @@ const Inventory: React.FC = () => {
         )}
 
         {/* Empty State */}
-        {!loading && !error && vehicles.length === 0 && (
+        {!loading && vehicles.length === 0 && (
           <div className="text-center py-12">
             <div className="mx-auto h-24 w-24 text-gray-300 mb-4">
               <Car className="h-full w-full" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No vehicles found</h3>
-            <p className="text-gray-500 mb-6">Get started by adding your first vehicle to the inventory.</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add First Vehicle
-            </button>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {error ? 'Error loading vehicles' : 'No vehicles found'}
+            </h3>
+            <p className="text-gray-500 mb-6">
+              {error ? 'There was an issue loading the inventory. Please try refreshing the page.' : 'Get started by adding your first vehicle to the inventory.'}
+            </p>
+            <div className="space-x-4">
+              <button
+                onClick={() => fetchVehicles()}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+              >
+                <RefreshCw className="h-5 w-5 mr-2" />
+                Retry
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Add First Vehicle
+              </button>
+            </div>
           </div>
         )}
 
         {/* Vehicle Table */}
-        {!loading && !error && vehicles.length > 0 && (
+        {!loading && vehicles.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -527,105 +580,176 @@ const Inventory: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {pagination && pagination.total_pages > 1 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="mb-4 sm:mb-0">
-                <p className="text-sm text-gray-700">
-                  Showing <span className="font-semibold">{((pagination.current_page - 1) * pagination.items_per_page) + 1}</span> to{' '}
-                  <span className="font-semibold">
-                    {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)}
-                  </span>{' '}
-                  of <span className="font-semibold">{pagination.total_items}</span> vehicles
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-2">
+            
+            {/* Simple Page Navigation */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4 mt-4">
+              <div className="flex items-center justify-center space-x-4">
+                {/* Left Arrow Button */}
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={!pagination.has_previous}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  disabled={!pagination?.has_previous}
+                  className={`p-2 rounded-lg border transition-colors ${
+                    !pagination?.has_previous
+                      ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                      : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                  }`}
+                  title="Previous Page"
                 >
-                  Previous
+                  <ChevronDown className="h-5 w-5 rotate-90" />
                 </button>
                 
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
-                    const page = i + 1;
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          page === currentPage
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  })}
+                {/* Page Numbers */}
+                <div className="flex items-center space-x-2">
+                  {pagination ? (
+                    (() => {
+                      const pages = [];
+                      const totalPages = pagination.total_pages;
+                      const current = pagination.current_page;
+                      
+                      // Always show first page
+                      pages.push(
+                        <button
+                          key={1}
+                          onClick={() => handlePageChange(1)}
+                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                            current === 1
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                              : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          1
+                        </button>
+                      );
+                      
+                      // Show ellipsis if there's a gap after page 1
+                      if (current > 3) {
+                        pages.push(
+                          <span key="ellipsis-1" className="px-3 py-2 text-gray-500">
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      // Show pages around current page
+                      for (let i = Math.max(2, current - 1); i <= Math.min(totalPages - 1, current + 1); i++) {
+                        if (i !== 1 && i !== totalPages) {
+                          pages.push(
+                            <button
+                              key={i}
+                              onClick={() => handlePageChange(i)}
+                              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                                current === i
+                                  ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                  : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                              }`}
+                            >
+                              {i}
+                            </button>
+                          );
+                        }
+                      }
+                      
+                      // Show ellipsis if there's a gap before last page
+                      if (current < totalPages - 2) {
+                        pages.push(
+                          <span key="ellipsis-2" className="px-3 py-2 text-gray-500">
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      // Always show last page (if there is more than one page)
+                      if (totalPages > 1) {
+                        pages.push(
+                          <button
+                            key={totalPages}
+                            onClick={() => handlePageChange(totalPages)}
+                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              current === totalPages
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                            }`}
+                          >
+                            {totalPages}
+                          </button>
+                        );
+                      }
+                      
+                      return pages;
+                    })()
+                  ) : (
+                    <span className="text-gray-500">Loading...</span>
+                  )}
                 </div>
                 
+                {/* Right Arrow Button */}
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={!pagination.has_next}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  disabled={!pagination?.has_next}
+                  className={`p-2 rounded-lg border transition-colors ${
+                    !pagination?.has_next
+                      ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                      : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                  }`}
+                  title="Next Page"
                 >
-                  Next
+                  <ChevronDown className="h-5 w-5 -rotate-90" />
                 </button>
               </div>
+              
+              {/* Page Info */}
+              {pagination && (
+                <div className="text-center mt-3">
+                  <p className="text-sm text-gray-600">
+                    Page {pagination.current_page} of {pagination.total_pages} • {pagination.total_items} total vehicles
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
+
+
       </div>
 
       {/* Add Vehicle Modal */}
       {showAddModal && (
         <div className="fixed z-50 inset-0 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
-
-            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4 relative">
+          {/* Background overlay */}
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeAddModal}></div>
+          
+          {/* Modal content */}
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="relative bg-white rounded-xl shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
                 <button
-                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors"
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors z-10"
                   onClick={closeAddModal}
                 >
                   <X className="h-6 w-6" />
                 </button>
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                
+                <div className="flex items-start mb-6">
+                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mr-4">
                     <Plus className="h-6 w-6 text-blue-600" />
                   </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">
                       Add New Vehicle
                     </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        Fill out the form below to add a new vehicle to the inventory.
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Fill out the form below to add a new vehicle to the inventory.
+                    </p>
                   </div>
                 </div>
 
-                <div className="mt-6">
-                  <AddVehicleForm
-                    onSuccess={handleAddComplete}
-                    onCancel={closeAddModal}
-                    isEditing={false}
-                  />
-                </div>
+                <AddVehicleForm
+                  onSuccess={handleAddComplete}
+                  onCancel={closeAddModal}
+                  isEditing={false}
+                  onSuccessMessage={setFormSuccessMessage}
+                  onErrorMessage={setFormErrorMessage}
+                />
               </div>
             </div>
           </div>
@@ -635,45 +759,42 @@ const Inventory: React.FC = () => {
       {/* Edit Vehicle Modal */}
       {showEditModal && selectedVehicle && (
         <div className="fixed z-50 inset-0 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
-
-            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4 relative">
+          {/* Background overlay */}
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowEditModal(false)}></div>
+          
+          {/* Modal content */}
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="relative bg-white rounded-xl shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
                 <button
-                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors"
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors z-10"
                   onClick={() => setShowEditModal(false)}
                 >
                   <X className="h-6 w-6" />
                 </button>
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                
+                <div className="flex items-start mb-6">
+                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mr-4">
                     <Edit className="h-6 w-6 text-blue-600" />
                   </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">
                       Edit Vehicle
                     </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        Update the vehicle information below.
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Update the vehicle information below.
+                    </p>
                   </div>
                 </div>
 
-                <div className="mt-6">
-                  <AddVehicleForm
-                    initialData={selectedVehicle}
-                    onSuccess={handleEditComplete}
-                    onCancel={() => setShowEditModal(false)}
-                    isEditing={true}
-                  />
-                </div>
+                <AddVehicleForm
+                  initialData={selectedVehicle}
+                  onSuccess={handleEditComplete}
+                  onCancel={() => setShowEditModal(false)}
+                  isEditing={true}
+                  onSuccessMessage={setFormSuccessMessage}
+                  onErrorMessage={setFormErrorMessage}
+                />
               </div>
             </div>
           </div>

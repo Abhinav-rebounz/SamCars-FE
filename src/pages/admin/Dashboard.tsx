@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getDashboardStats, DashboardStats } from '../../services/dashboard';
 import DashboardCharts from '../../components/admin/DashboardCharts';
+import AlertState from '../../components/ErrorState';
 import {
   DollarSign,
   Car,
@@ -63,25 +64,12 @@ const Dashboard: React.FC = () => {
   if (error || !dashboardData) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-              <div className="flex items-start">
-                <AlertTriangle className="h-6 w-6 text-red-500 mt-0.5" />
-                <div className="ml-3">
-                  <h3 className="text-lg font-medium text-red-800">Dashboard Error</h3>
-                  <p className="mt-2 text-red-700">{error || 'Failed to load dashboard data'}</p>
-                  <button 
-                    onClick={() => window.location.reload()} 
-                    className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                  >
-                    Try Again
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AlertState
+          error={error || 'Failed to load dashboard data'}
+          variant="server"
+          title="Dashboard Error"
+          description="We couldn't load the dashboard data. This might be due to a network issue or server problem."
+        />
       </div>
     );
   }

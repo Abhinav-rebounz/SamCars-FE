@@ -7,6 +7,8 @@ import VehicleActions from '../../components/vehicle/VehicleActions';
 import VehicleImageGallery from '../../components/vehicle/VehicleImageGallery';
 import { getVehicleById } from '../../services/vehicle';
 import { checkWishlist } from '../../services/wishlist';
+import LoadingState from '../../components/LoadingState';
+import AlertState from '../../components/ErrorState';
 
 interface Vehicle {
   id: number;
@@ -127,10 +129,15 @@ const VehicleDetailsPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Vehicle not found'}</p>
+          <AlertState
+            error={error || 'Vehicle not found'}
+            variant={error ? 'server' : 'not-found'}
+            title={error ? 'Failed to Load Vehicle' : 'Vehicle Not Found'}
+            description={error ? 'We couldn\'t load the vehicle details. This might be due to a network issue or server problem.' : 'The requested vehicle could not be found in our inventory.'}
+          />
           <Link
             to="/inventory"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             Back to Inventory
           </Link>

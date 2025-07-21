@@ -36,9 +36,20 @@ import ManualPaymentModal from '../../components/admin/ManualPaymentModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import ExportModal from '../../components/admin/ExportModal';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import LoadingState from '../../components/LoadingState';
+import AlertState from '../../components/ErrorState';
 import Toast from '../../components/Toast';
 import { Payment } from '../../types/payment';
 import { PaymentExportData, ExportFormat } from '../../utils/exportUtils';
+
+interface Pagination {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
 
 const Payments: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +59,11 @@ const Payments: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   
   // Replace mock payments data with real data and loading/error state
   const [payments, setPayments] = useState<any[]>([]);
@@ -66,9 +82,38 @@ const Payments: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchPayments();
+      const filters = {
+        search: searchTerm,
+        sort_by: sortField,
+        sort_order: sortDirection,
+        page: currentPage,
+        limit: itemsPerPage,
+        ...(filterStatus !== 'all' && { status: filterStatus }),
+        ...(filterType !== 'all' && { type: filterType }),
+      };
+      
+      const response = await fetchPayments(filters);
+      console.log('Payments API response:', response);
+      
       if (response.success && response.data && Array.isArray(response.data.payments)) {
         setPayments(response.data.payments);
+        
+        // Use server-side pagination if available, otherwise calculate client-side
+        if (response.data.pagination) {
+          console.log('Using server pagination:', response.data.pagination);
+          setPagination(response.data.pagination);
+        } else {
+          console.log('Calculating client-side pagination');
+          const totalPages = Math.ceil(response.data.payments.length / itemsPerPage);
+          setPagination({
+            current_page: currentPage,
+            total_pages: totalPages,
+            total_items: response.data.payments.length,
+            items_per_page: itemsPerPage,
+            has_next: currentPage < totalPages,
+            has_previous: currentPage > 1
+          });
+        }
       } else {
         setError(response.error || 'Failed to fetch payments');
       }
@@ -81,7 +126,7 @@ const Payments: React.FC = () => {
 
   useEffect(() => {
     fetchAllPayments();
-  }, []);
+  }, [searchTerm, sortField, sortDirection, currentPage, itemsPerPage, filterStatus, filterType]);
   
   // Filter payments based on search term and filters
   const filteredPayments = payments.filter(payment => {
@@ -101,29 +146,22 @@ const Payments: React.FC = () => {
     
     return matchesSearch && matchesStatus && matchesType;
   });
-  
+
   // Sort payments
   const sortedPayments = [...filteredPayments].sort((a, b) => {
-    let aValue: any = a[sortField as keyof typeof a];
-    let bValue: any = b[sortField as keyof typeof b];
-    
-    // Handle date strings
-    if (sortField === 'date') {
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+
+    if (sortField === 'date' || sortField === 'created_at') {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
     }
-    
-    // Handle numeric values
-    if (sortField === 'amount') {
-      aValue = parseFloat(aValue.toString());
-      bValue = parseFloat(bValue.toString());
-    }
-    
+
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
   });
-  
+
   const handleSort = (field: string) => {
     if (field === sortField) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -131,6 +169,35 @@ const Payments: React.FC = () => {
       setSortField(field);
       setSortDirection('asc');
     }
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    console.log('handlePageChange called with page:', page);
+    console.log('Current pagination:', pagination);
+    
+    if (pagination && (page < 1 || page > pagination.total_pages)) {
+      console.log('Page change blocked - invalid page number');
+      return;
+    }
+    
+    console.log('Setting current page to:', page);
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterStatus(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleTypeFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterType(e.target.value);
+    setCurrentPage(1);
   };
   
   const handleViewPayment = (payment: any) => {
@@ -217,7 +284,8 @@ const Payments: React.FC = () => {
 
 
   return (
-    <div className="px-6 py-8 w-full max-w-9xl mx-auto bg-gray-50 min-h-screen">
+    <>
+      <div className="px-6 py-8 w-full max-w-9xl mx-auto bg-gray-50 min-h-screen">
       {/* Header Section */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
@@ -274,27 +342,43 @@ const Payments: React.FC = () => {
               <Filter className="h-5 w-5 text-gray-400 mr-3" />
               <select
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+                onChange={handleFilterChange}
                 className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
-                <option value="all">All Statuses</option>
+                <option value="all">All Status</option>
                 <option value="completed">Completed</option>
                 <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
                 <option value="refunded">Refunded</option>
+              </select>
+            </div>
+
+            <div className="flex items-center">
+              <Filter className="h-5 w-5 text-gray-400 mr-3" />
+              <select
+                value={filterType}
+                onChange={handleTypeFilterChange}
+                className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="all">All Types</option>
+                <option value="stripe">Stripe</option>
+                <option value="manual">Manual</option>
+                <option value="cash">Cash</option>
+                <option value="check">Check</option>
               </select>
             </div>
 
             <div>
               <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
                 className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
-                <option value="all">All Types</option>
-                <option value="vehicle hold">Vehicle Hold</option>
-                <option value="vehicle purchase">Vehicle Purchase</option>
-                <option value="service">Service</option>
-                <option value="stripe">Stripe Payments</option>
+                <option value="5">5 per page</option>
+                <option value="10">10 per page</option>
+                <option value="25">25 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
               </select>
             </div>
           </div>
@@ -305,223 +389,324 @@ const Payments: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           {/* Loading, Error, and Empty States */}
-          {loading ? (
+          {loading && (
             <div className="p-12 text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600 font-medium">Loading payments...</p>
             </div>
-          ) : error ? (
+          )}
+          
+          {error && (
             <div className="p-12 text-center">
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <p className="text-red-600 font-medium">{error}</p>
-              <button 
-                onClick={fetchAllPayments}
-                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
-              </button>
+              <AlertState
+                error={error}
+                variant="server"
+                title="Failed to Load Payments"
+                description="We couldn't load the payment data. This might be due to a network issue or server problem."
+              />
             </div>
-          ) : !loading && payments.length === 0 ? (
+          )}
+          
+          {!loading && !error && payments.length === 0 && (
             <div className="p-12 text-center">
               <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 font-medium">No payments found</p>
               <p className="text-gray-500 text-sm mt-1">Start by adding a manual payment or wait for online payments</p>
             </div>
-          ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th 
-                  scope="col" 
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  onClick={() => handleSort('customer')}
-                >
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 mr-2" />
-                    Customer
-                    {sortField === 'customer' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  onClick={() => handleSort('description')}
-                >
-                  <div className="flex items-center">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Description
-                    {sortField === 'description' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  onClick={() => handleSort('amount')}
-                >
-                  <div className="flex items-center">
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Amount
-                    {sortField === 'amount' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50" onClick={() => handleSort('date')}>
-                  <div className="flex items-center">
-                    Date
-                    {sortField === 'date' && (
-                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
-                    )}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50" onClick={() => handleSort('status')}>
-                  <div className="flex items-center">
-                    Status
-                    {sortField === 'status' && (
-                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
-                    )}
-                  </div>
-                </th>
-                </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {sortedPayments.map((payment) => (
-                <tr 
-                  key={payment.id}
-                  onClick={() => handleViewPayment(payment)}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
-                >
-                  <td className="px-6 py-5 whitespace-nowrap">
+          )}
+          
+          {!loading && !error && payments.length > 0 && (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('customer')}
+                  >
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <User className="h-5 w-5 text-blue-600" />
+                      <User className="h-4 w-4 mr-2" />
+                      Customer
+                      {sortField === 'customer' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('description')}
+                  >
+                    <div className="flex items-center">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Description
+                      {sortField === 'description' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('amount')}
+                  >
+                    <div className="flex items-center">
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      Amount
+                      {sortField === 'amount' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50" onClick={() => handleSort('date')}>
+                    <div className="flex items-center">
+                      Date
+                      {sortField === 'date' && (
+                        sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50" onClick={() => handleSort('status')}>
+                    <div className="flex items-center">
+                      Status
+                      {sortField === 'status' && (
+                        sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {sortedPayments.map((payment) => (
+                  <tr 
+                    key={payment.id}
+                    onClick={() => handleViewPayment(payment)}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
+                  >
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <User className="h-5 w-5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-semibold text-gray-900">{payment.customer}</div>
+                          <div className="text-sm text-gray-500">{payment.email}</div>
                         </div>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-semibold text-gray-900">{payment.customer}</div>
-                        <div className="text-sm text-gray-500">{payment.email}</div>
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{payment.description}</div>
+                      <div className="text-sm text-gray-500 capitalize">{payment.type}</div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        {payment.is_manual && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                            Manual
+                          </span>
+                        )}
+                        {payment.is_stripe && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                            Stripe
+                          </span>
+                        )}
+                        {payment.vehicle && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            <Car className="h-3 w-3 mr-1" />
+                            {payment.vehicle.year} {payment.vehicle.make} {payment.vehicle.model}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewVehicleDetails(payment.vehicle.id || payment.vehicle.vehicle_id);
+                              }}
+                              className="ml-1 p-0.5 hover:bg-green-200 rounded-full transition-colors"
+                              title="View Vehicle Details"
+                            >
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </button>
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{payment.description}</div>
-                    <div className="text-sm text-gray-500 capitalize">{payment.type}</div>
-                    <div className="flex items-center space-x-2 mt-2">
-                      {payment.is_manual && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                          Manual
-                        </span>
-                      )}
-                      {payment.is_stripe && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                          Stripe
-                        </span>
-                      )}
-                      {payment.vehicle && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                          <Car className="h-3 w-3 mr-1" />
-                          {payment.vehicle.year} {payment.vehicle.make} {payment.vehicle.model}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewVehicleDetails(payment.vehicle.id || payment.vehicle.vehicle_id);
-                            }}
-                            className="ml-1 p-0.5 hover:bg-green-200 rounded-full transition-colors"
-                            title="View Vehicle Details"
-                          >
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </button>
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 whitespace-nowrap">
-                    <div className="text-lg font-bold text-gray-900">
-                      ${payment.amount.toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {payment.currency || 'USD'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                      {new Date(payment.date).toLocaleDateString()}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {new Date(payment.date).toLocaleTimeString()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-900">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                      payment.status.toLowerCase() === 'completed' 
-                        ? 'bg-green-100 text-green-800' 
-                        : payment.status.toLowerCase() === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : payment.status.toLowerCase() === 'refunded'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {payment.status.toLowerCase() === 'completed' && <CheckCircle className="h-4 w-4 mr-1" />}
-                      {payment.status.toLowerCase() === 'pending' && <Clock className="h-4 w-4 mr-1" />}
-                      {payment.status.toLowerCase() === 'refunded' && <RefreshCw className="h-4 w-4 mr-1" />}
-                      {payment.status.toLowerCase() === 'failed' && <XCircle className="h-4 w-4 mr-1" />}
-                      {payment.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="text-lg font-bold text-gray-900">
+                        ${payment.amount.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {payment.currency || 'USD'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                        {new Date(payment.date).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {new Date(payment.date).toLocaleTimeString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-900">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                        payment.status.toLowerCase() === 'completed' 
+                          ? 'bg-green-100 text-green-800' 
+                          : payment.status.toLowerCase() === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : payment.status.toLowerCase() === 'refunded'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {payment.status.toLowerCase() === 'completed' && <CheckCircle className="h-4 w-4 mr-1" />}
+                        {payment.status.toLowerCase() === 'pending' && <Clock className="h-4 w-4 mr-1" />}
+                        {payment.status.toLowerCase() === 'refunded' && <RefreshCw className="h-4 w-4 mr-1" />}
+                        {payment.status.toLowerCase() === 'failed' && <XCircle className="h-4 w-4 mr-1" />}
+                        {payment.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
+      </div>
         
-        {/* Pagination */}
-        <div className="bg-white px-6 py-4 flex items-center justify-between border-t border-gray-200">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-              Previous
+        {/* Simple Page Navigation */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4 mt-4">
+          <div className="flex items-center justify-center space-x-4">
+            {/* Left Arrow Button */}
+            <button
+              onClick={() => {
+                console.log('Previous button clicked, current page:', currentPage);
+                handlePageChange(currentPage - 1);
+              }}
+              disabled={!pagination?.has_previous}
+              className={`p-2 rounded-lg border transition-colors ${
+                !pagination?.has_previous
+                  ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                  : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+              }`}
+              title="Previous Page"
+            >
+              <ChevronDown className="h-5 w-5 rotate-90" />
             </button>
-            <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-              Next
+            
+            {/* Page Numbers */}
+            <div className="flex items-center space-x-2">
+              {pagination ? (
+                (() => {
+                  const pages = [];
+                  const totalPages = pagination.total_pages;
+                  const current = pagination.current_page;
+                  
+                  // Always show first page
+                  pages.push(
+                    <button
+                      key={1}
+                      onClick={() => handlePageChange(1)}
+                      className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        current === 1
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                          : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      1
+                    </button>
+                  );
+                  
+                  // Show ellipsis if there's a gap after page 1
+                  if (current > 3) {
+                    pages.push(
+                      <span key="ellipsis-1" className="px-3 py-2 text-gray-500">
+                        ...
+                      </span>
+                    );
+                  }
+                  
+                  // Show pages around current page
+                  for (let i = Math.max(2, current - 1); i <= Math.min(totalPages - 1, current + 1); i++) {
+                    if (i !== 1 && i !== totalPages) {
+                      pages.push(
+                        <button
+                          key={i}
+                          onClick={() => handlePageChange(i)}
+                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                            current === i
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                              : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                  }
+                  
+                  // Show ellipsis if there's a gap before last page
+                  if (current < totalPages - 2) {
+                    pages.push(
+                      <span key="ellipsis-2" className="px-3 py-2 text-gray-500">
+                        ...
+                      </span>
+                    );
+                  }
+                  
+                  // Always show last page (if there is more than one page)
+                  if (totalPages > 1) {
+                    pages.push(
+                      <button
+                        key={totalPages}
+                        onClick={() => handlePageChange(totalPages)}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          current === totalPages
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                            : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        {totalPages}
+                      </button>
+                    );
+                  }
+                  
+                  return pages;
+                })()
+              ) : (
+                <span className="text-gray-500">Loading...</span>
+              )}
+            </div>
+            
+            {/* Right Arrow Button */}
+            <button
+              onClick={() => {
+                console.log('Next button clicked, current page:', currentPage);
+                handlePageChange(currentPage + 1);
+              }}
+              disabled={!pagination?.has_next}
+              className={`p-2 rounded-lg border transition-colors ${
+                !pagination?.has_next
+                  ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                  : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+              }`}
+              title="Next Page"
+            >
+              <ChevronDown className="h-5 w-5 -rotate-90" />
             </button>
           </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-semibold">1</span> to <span className="font-semibold">{sortedPayments.length}</span> of{' '}
-                <span className="font-semibold">{sortedPayments.length}</span> results
+          
+          {/* Page Info */}
+          {pagination && (
+            <div className="text-center mt-3">
+              <p className="text-sm text-gray-600">
+                Page {pagination.current_page} of {pagination.total_pages} • {pagination.total_items} total payments
               </p>
+
             </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-lg shadow-sm -space-x-px" aria-label="Pagination">
-                <button className="relative inline-flex items-center px-3 py-2 rounded-l-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
-                  <span className="sr-only">Previous</span>
-                  <ChevronUp className="h-5 w-5 rotate-90" />
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-semibold text-blue-700">
-                  1
-                </button>
-                <button className="relative inline-flex items-center px-3 py-2 rounded-r-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
-                  <span className="sr-only">Next</span>
-                  <ChevronDown className="h-5 w-5 rotate-90" />
-                </button>
-              </nav>
-            </div>
-          </div>
+          )}
         </div>
       </div>
       
       {/* Payment Detail Modal */}
       {selectedPayment && (
         <div className="fixed z-50 inset-0 overflow-y-auto" style={{ zIndex: 9999 }}>
-          {console.log('Rendering payment modal for:', selectedPayment)}
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             {/* Background overlay */}
             <div 
@@ -766,7 +951,6 @@ const Payments: React.FC = () => {
                         </h5>
                         <p className="text-sm text-gray-600">
                           {selectedPayment.vehicle.stockNumber && `Stock #${selectedPayment.vehicle.stockNumber}`}
-                          {selectedPayment.vehicle.stockNumber && selectedPayment.vehicle.vin && ' • '}
                           {selectedPayment.vehicle.vin && `VIN: ${selectedPayment.vehicle.vin}`}
                         </p>
                       </div>
@@ -859,7 +1043,7 @@ const Payments: React.FC = () => {
           onClose={() => setToastMessage(null)}
         />
       )}
-    </div>
+    </>
   );
 };
 

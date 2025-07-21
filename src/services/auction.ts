@@ -166,12 +166,29 @@ export const getAuctionPurchases = async (filters?: Record<string, any>): Promis
     
     console.log('Get auction purchases response:', response.data);
     
-    if (response.data.status === 'success' && response.data.data) {
+    // Handle different response structures
+    if (response.data.success && response.data.data) {
+      // Check if data has vehicles or purchases
+      const vehicles = Array.isArray(response.data.data.vehicles) 
+        ? response.data.data.vehicles.map(mapBackendAuctionPurchase)
+        : Array.isArray(response.data.data.purchases)
+        ? response.data.data.purchases.map(mapBackendAuctionPurchase)
+        : [];
+      
+      console.log('Mapped vehicles:', vehicles);
+      
+      return { 
+        success: true, 
+        purchases: vehicles,
+        pagination: response.data.data.pagination
+      };
+    } else if (response.data.status === 'success' && response.data.data) {
+      // Fallback for old format
       const vehicles = Array.isArray(response.data.data.vehicles) 
         ? response.data.data.vehicles.map(mapBackendAuctionPurchase)
         : [];
       
-      console.log('Mapped vehicles:', vehicles);
+      console.log('Mapped vehicles (fallback):', vehicles);
       
       return { 
         success: true, 

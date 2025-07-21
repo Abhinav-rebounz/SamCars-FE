@@ -117,16 +117,86 @@ export const addVehicle = async (vehicleData: FormData): Promise<AddVehicleRespo
       }
     });
     
-    if (response.data.status === 'success') {
-      return { success: true, vehicle: mapBackendVehicle(response.data.data) };
-    } else {
+    console.log('Backend add response:', response.data);
+    
+    // Handle different response structures
+    if (response.data.status === 'success' || response.data.success === true) {
+      const vehicleData = response.data.data || response.data.vehicle || response.data;
+      return { success: true, vehicle: mapBackendVehicle(vehicleData) };
+    } else if (response.data.success === false) {
+      return { success: false, error: response.data.message || response.data.error || 'Failed to add vehicle' };
+    } else if (response.data.status === 'error') {
       return { success: false, error: response.data.message || 'Failed to add vehicle' };
+    } else if (response.data.message && response.data.vehicle_id) {
+      // Handle the actual API response structure: {"message":"Vehicle added successfully","vehicle_id":15,"received_files":[]}
+      console.log('Handling vehicle_id response structure');
+      const vehicleData = {
+        id: response.data.vehicle_id,
+        ...response.data
+      };
+      console.log('Mapped vehicle data:', vehicleData);
+      return { success: true, vehicle: mapBackendVehicle(vehicleData) };
+    } else if (response.data.message && response.data.message.includes('successfully')) {
+      // Handle success messages without vehicle_id
+      return { success: true, vehicle: mapBackendVehicle(response.data) };
+    } else {
+      // If no explicit success/error status, assume success if we have data
+      if (response.data.data || response.data.vehicle || response.data.id || response.data.vehicle_id) {
+        const vehicleData = response.data.data || response.data.vehicle || response.data;
+        return { success: true, vehicle: mapBackendVehicle(vehicleData) };
+      } else {
+        return { success: false, error: 'Unexpected response format from server' };
+      }
     }
   } catch (error: unknown) {
     const axiosError = error as AxiosError<ErrorResponse>;
+    console.error('Add vehicle error:', axiosError.response?.data);
+    
+    // Handle specific constraint violations
+    if (axiosError.response?.data?.details) {
+      const details = axiosError.response.data.details;
+      if (details.includes('vehicles_stock_number_key')) {
+        return {
+          success: false,
+          error: 'Stock number already exists. Please use a unique stock number.'
+        };
+      } else if (details.includes('vehicles_vin_key')) {
+        return {
+          success: false,
+          error: 'VIN number already exists. Please use a unique VIN.'
+        };
+      } else if (details.includes('unique constraint')) {
+        return {
+          success: false,
+          error: 'A field with this value already exists. Please use a unique value.'
+        };
+      }
+    }
+    
+    // Handle validation errors
+    if (axiosError.response?.data?.message) {
+      const message = axiosError.response.data.message;
+      if (message.includes('VIN')) {
+        return {
+          success: false,
+          error: 'VIN number already exists. Please use a unique VIN.'
+        };
+      } else if (message.includes('stock')) {
+        return {
+          success: false,
+          error: 'Stock number already exists. Please use a unique stock number.'
+        };
+      } else if (message.includes('duplicate')) {
+        return {
+          success: false,
+          error: 'A vehicle with this information already exists. Please check VIN and stock number.'
+        };
+      }
+    }
+    
     return {
       success: false,
-      error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to add vehicle'
+      error: axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to add vehicle. Please check your input and try again.'
     };
   }
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { addVehicle, updateVehicle } from '../../services/inventory';
 import { Vehicle } from '../../types/vehicle';
+import AlertState from '../ErrorState';
 import { 
   X, 
   DollarSign, 
@@ -8,8 +9,6 @@ import {
   Calendar, 
   Tag, 
   Image as ImageIcon,
-  CheckCircle,
-  AlertCircle,
   Upload,
   Trash2,
   Plus,
@@ -24,7 +23,8 @@ import {
   Fuel,
   Zap,
   Shield,
-  Award
+  Award,
+  CheckCircle
 } from 'lucide-react';
 
 interface ExistingImage {
@@ -38,13 +38,17 @@ interface AddVehicleFormProps {
   onSuccess: () => void;
   onCancel: () => void;
   isEditing?: boolean;
+  onSuccessMessage?: (message: string) => void;
+  onErrorMessage?: (message: string) => void;
 }
 
 const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
   initialData,
   onSuccess,
   onCancel,
-  isEditing = false
+  isEditing = false,
+  onSuccessMessage,
+  onErrorMessage
 }) => {
   const [formData, setFormData] = useState({
     make: '',
@@ -245,6 +249,31 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
     setError(null);
     setSuccess(null);
 
+    // Basic validation
+    if (!formData.make || !formData.model || !formData.year || !formData.price || !formData.vin || !formData.mileage || !formData.transmission || !formData.body_type || !formData.fuel_type || !formData.condition || !formData.description) {
+      setError('Please fill in all required fields (Make, Model, Year, Price, VIN, Mileage, Transmission, Body Type, Fuel Type, Condition, Description)');
+      setLoading(false);
+      return;
+    }
+
+    // VIN validation (if provided)
+    if (formData.vin && formData.vin.length < 10) {
+      setError('VIN must be at least 10 characters long');
+      setLoading(false);
+      return;
+    }
+
+    // Carfax link validation (if provided)
+    if (formData.carfax_link && formData.carfax_link.trim() !== '') {
+      try {
+        new URL(formData.carfax_link);
+      } catch (error) {
+        setError('Please enter a valid Carfax URL');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const formDataToSend = new FormData();
 
@@ -254,7 +283,9 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         if (Array.isArray(value)) {
           formDataToSend.append(key, JSON.stringify(value));
         } else {
-          formDataToSend.append(key, value.toString());
+          // Handle empty strings properly - send empty string instead of "undefined" or "null"
+          const stringValue = value?.toString() || '';
+          formDataToSend.append(key, stringValue);
         }
       });
 
@@ -281,89 +312,75 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         formDataToSend.append('existing_images', JSON.stringify(existingImagesToKeep));
       }
 
+      console.log('Submitting form data:', {
+        isEditing,
+        formData: Object.fromEntries(formDataToSend.entries())
+      });
+
       if (isEditing && initialData) {
         formDataToSend.append('id', initialData.id.toString());
         const response = await updateVehicle(formDataToSend);
+        console.log('Update response:', response);
+        
         if (response.success) {
-          setSuccess('Vehicle updated successfully!');
+          const successMsg = 'Vehicle updated successfully!';
+          if (onSuccessMessage) {
+            onSuccessMessage(successMsg);
+          } else {
+            setSuccess(successMsg);
+          }
           setTimeout(() => {
             onSuccess();
           }, 1500);
         } else {
-          setError(response.error || 'Failed to update vehicle');
+          console.error('Update failed:', response.error);
+          const errorMsg = response.error || 'Failed to update vehicle';
+          if (onErrorMessage) {
+            onErrorMessage(errorMsg);
+          } else {
+            setError(errorMsg);
+          }
         }
       } else {
         const response = await addVehicle(formDataToSend);
+        console.log('Add response:', response);
+        console.log('Response success:', response.success);
+        console.log('Response error:', response.error);
+        console.log('Response vehicle:', response.vehicle);
+        
         if (response.success) {
-          setSuccess('Vehicle added successfully!');
+          console.log('Setting success message');
+          const successMsg = 'Vehicle added successfully!';
+          if (onSuccessMessage) {
+            onSuccessMessage(successMsg);
+          } else {
+            setSuccess(successMsg);
+          }
           setTimeout(() => {
             onSuccess();
           }, 1500);
         } else {
-          setError(response.error || 'Failed to add vehicle');
+          console.error('Add failed:', response.error);
+          const errorMsg = response.error || 'Failed to add vehicle';
+          if (onErrorMessage) {
+            onErrorMessage(errorMsg);
+          } else {
+            setError(errorMsg);
+          }
         }
       }
     } catch (err) {
       console.error('Form submission error:', err);
-      setError('An error occurred while saving the vehicle');
+      setError('An error occurred while saving the vehicle. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      {/* Fixed Alert Messages at Top of Page */}
-      {success && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
-          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-semibold text-green-800">Success!</h3>
-                  <p className="text-xs text-green-700 mt-1">{success}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSuccess(null)}
-                className="flex-shrink-0 ml-4 text-green-600 hover:text-green-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4">
-          <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-semibold text-red-800">Error</h3>
-                  <p className="text-xs text-red-700 mt-1">{error}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="flex-shrink-0 ml-4 text-red-600 hover:text-red-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="container mx-auto px-4">
-        <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-8">
+    <div className="bg-gray-50">
+      <div className="px-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Header Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center">
@@ -376,6 +393,9 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
                 </h1>
                 <p className="text-gray-600 mt-1">
                   {isEditing ? 'Update vehicle information and details' : 'Add a new vehicle to your inventory'}
+                </p>
+                <p className="text-sm text-red-600 mt-2">
+                  * Required fields
                 </p>
               </div>
             </div>
@@ -670,12 +690,13 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Fuel className="h-4 w-4 inline mr-2 text-gray-400" />
-                  Fuel Type
+                  Fuel Type *
                 </label>
                 <select
                   name="fuel_type"
                   value={formData.fuel_type}
                   onChange={handleInputChange}
+                  required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
                   <option value="">Select fuel type</option>
@@ -705,12 +726,13 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Shield className="h-4 w-4 inline mr-2 text-gray-400" />
-                  Condition
+                  Condition *
                 </label>
                 <select
                   name="condition"
                   value={formData.condition}
                   onChange={handleInputChange}
+                  required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
                   <option value="">Select condition</option>
@@ -744,7 +766,7 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
                   Carfax Link
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   name="carfax_link"
                   value={formData.carfax_link}
                   onChange={handleInputChange}
@@ -822,12 +844,13 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Vehicle Description
+                Vehicle Description *
               </label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
+                required
                 rows={6}
                 placeholder="Describe the vehicle's condition, history, and any special features..."
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
