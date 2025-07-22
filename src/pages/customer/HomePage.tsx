@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, Shield, ThumbsUp, Clock, ArrowRight } from 'lucide-react';
 import { getInventory } from '../../services/inventory';
 import VehicleCard from '../../components/VehicleCard';
@@ -8,6 +8,29 @@ const HomePage: React.FC = () => {
   const [featuredVehicles, setFeaturedVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Remove all state and logic related to the search section
+
+  // Model options based on make
+  const modelOptions: Record<string, string[]> = {
+    Toyota: ['Camry', 'Corolla', 'RAV4', 'Highlander'],
+    Honda: ['Civic', 'Accord', 'CR-V', 'Pilot'],
+    Ford: ['F-150', 'Escape', 'Explorer', 'Mustang'],
+    BMW: ['3 Series', '5 Series', 'X3', 'X5'],
+    Chevrolet: ['Silverado', 'Equinox', 'Malibu', 'Tahoe'],
+  };
+
+  // Price range mapping
+  const priceRanges = [
+    { label: 'Any Price', min: '', max: '' },
+    { label: 'Under $20,000', min: '', max: '20000' },
+    { label: '$20,000 - $30,000', min: '20000', max: '30000' },
+    { label: '$30,000 - $40,000', min: '30000', max: '40000' },
+    { label: '$40,000 - $50,000', min: '40000', max: '50000' },
+    { label: 'Over $50,000', min: '50000', max: '' },
+  ];
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -37,6 +60,8 @@ const HomePage: React.FC = () => {
     };
     fetchFeatured();
   }, []);
+
+  // Remove the search handler
 
   return (
     <div>
@@ -70,48 +95,10 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Search Section */}
-      <section className="bg-white py-8 shadow-md">
-        <div className="container-custom">
-          <div className="flex items-center justify-center">
-            <div className="w-full max-w-4xl bg-white rounded-lg p-6">
-              <div className="flex items-center mb-4">
-                <Search className="h-6 w-6 text-blue-700 mr-2" />
-                <h2 className="text-2xl font-bold">Find Your Perfect Car</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="form-label">Make</label>
-                  <select className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                    <option value="">All Makes</option>
-                    <option value="Toyota">Toyota</option>
-                    <option value="Honda">Honda</option>
-                    <option value="Ford">Ford</option>
-                    <option value="BMW">BMW</option>
-                    <option value="Chevrolet">Chevrolet</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Price Range</label>
-                  <select className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                    <option value="">Any Price</option>
-                    <option value="20000">Under $20,000</option>
-                    <option value="30000">Under $30,000</option>
-                    <option value="40000">Under $40,000</option>
-                    <option value="50000">Under $50,000</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">&nbsp;</label>
-                  <Link to="/inventory" className="btn-primary w-full block text-center">
-                    Search
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Remove the search section JSX */}
+
+      {/* Search Results or Featured Vehicles */}
+      {/* The search results section is removed as per the edit hint. */}
 
       {/* Featured Vehicles */}
       <section className="section bg-gray-50">

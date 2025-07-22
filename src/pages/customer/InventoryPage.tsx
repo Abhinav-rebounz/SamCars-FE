@@ -95,6 +95,14 @@ const InventoryPage: React.FC = () => {
     });
   };
 
+  // Results per page options
+  const resultsPerPageOptions = [5, 10, 25, 50, 100];
+
+  // Handle results per page change
+  const handleResultsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilters(prev => ({ ...prev, limit: parseInt(e.target.value, 10), page: 1 }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -286,21 +294,23 @@ const InventoryPage: React.FC = () => {
 
           {/* Main Content */}
           <div className="flex-1">
-            {/* Results Summary */}
-            <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">
-                  Showing {vehicles.length} of {pagination?.total_items || 0} vehicles
-                </span>
-                
-                {/* Mobile Filter Button */}
-                <button
-                  className="lg:hidden flex items-center gap-2 text-gray-600 hover:text-gray-900"
-                  onClick={() => setIsFilterOpen(true)}
+            {/* Results Summary and Results Per Page */}
+            <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <span className="text-gray-600">
+                Showing {vehicles.length} of {pagination?.total_items || 0} vehicles
+              </span>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <label htmlFor="results-per-page" className="text-sm text-gray-700 mr-2 whitespace-nowrap">Results per page:</label>
+                <select
+                  id="results-per-page"
+                  value={String(filters.limit)}
+                  onChange={handleResultsPerPageChange}
+                  className="rounded-lg border-gray-200 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 px-3 py-2 text-sm w-full md:w-auto"
                 >
-                  <SlidersHorizontal className="w-5 h-5" />
-                  Filters
-                </button>
+                  {resultsPerPageOptions.map(opt => (
+                    <option key={opt} value={String(opt)}>{opt}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -318,64 +328,65 @@ const InventoryPage: React.FC = () => {
               <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {vehicles.map(vehicle => (
-                  <VehicleCard
-                    key={vehicle.id}
-                    id={vehicle.id}
-                    make={vehicle.make}
-                    model={vehicle.model}
-                    year={vehicle.year}
-                    price={vehicle.price}
-                    mileage={vehicle.mileage}
-                    image={vehicle.images[0]}
-                    condition={vehicle.condition}
-                    tags={vehicle.tags}
-                  />
-                ))}
+                    <VehicleCard
+                      key={vehicle.id}
+                      id={vehicle.id}
+                      make={vehicle.make}
+                      model={vehicle.model}
+                      year={vehicle.year ?? 0}
+                      price={vehicle.price}
+                      mileage={vehicle.mileage ?? 0}
+                      image={vehicle.images && vehicle.images.length > 0 ? vehicle.images[0] : ''}
+                      condition={vehicle.condition ?? ''}
+                      tags={vehicle.tags ?? []}
+                    />
+                  ))}
               </div>
 
-                {/* Pagination */}
-                {pagination && pagination.total_pages > 1 && (
-                  <div className="mt-8 flex justify-center items-center gap-2">
-        <button
+                {/* Pagination (always show, even if only one page or no results) */}
+                {pagination && (
+                  <div className="mt-8 flex justify-center items-center gap-2 w-full">
+                    <button
                       onClick={() => handlePageChange(pagination.current_page - 1)}
-                      disabled={!pagination.has_previous}
-                      className={`p-2 rounded-lg border ${
-                        pagination.has_previous
+                      disabled={pagination.current_page <= 1}
+                      className={`p-2 rounded-lg border bg-white ${
+                        pagination.current_page > 1
                           ? 'border-gray-200 text-gray-600 hover:border-blue-600 hover:text-blue-600'
                           : 'border-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
+                      aria-label="Previous Page"
                     >
                       <ChevronLeft className="w-5 h-5" />
-        </button>
-
+                    </button>
                     <div className="flex items-center gap-1">
-                      {[...Array(pagination.total_pages)].map((_, i) => (
-                <button 
+                      {[...Array(Math.max(1, pagination.total_pages))].map((_, i) => (
+                        <button
                           key={i}
                           onClick={() => handlePageChange(i + 1)}
                           className={`min-w-[2.5rem] h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                             pagination.current_page === i + 1
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-600 hover:bg-gray-50'
+                              ? 'bg-blue-600 text-white shadow'
+                              : 'text-gray-600 bg-white hover:bg-gray-50 border border-gray-200'
                           }`}
+                          aria-current={pagination.current_page === i + 1 ? 'page' : undefined}
                         >
                           {i + 1}
-                </button>
+                        </button>
                       ))}
                     </div>
-
-                <button
+                    <button
                       onClick={() => handlePageChange(pagination.current_page + 1)}
-                      disabled={!pagination.has_next}
-                      className={`p-2 rounded-lg border ${
-                        pagination.has_next
+                      disabled={pagination.current_page >= (pagination.total_pages || 1)}
+                      className={`p-2 rounded-lg border bg-white ${
+                        pagination.current_page < (pagination.total_pages || 1)
                           ? 'border-gray-200 text-gray-600 hover:border-blue-600 hover:text-blue-600'
                           : 'border-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
+                      aria-label="Next Page"
                     >
                       <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
+                    </button>
+                  </div>
                 )}
               </>
             )}

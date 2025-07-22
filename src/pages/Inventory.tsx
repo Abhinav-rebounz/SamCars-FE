@@ -16,6 +16,8 @@ import {
   SelectChangeEvent,
   Grid
 } from '@mui/material';
+import Pagination from '@mui/material/Pagination';
+import Stack from '@mui/material/Stack';
 import { Car } from 'lucide-react';
 import api from '../services/api';
 
@@ -37,6 +39,11 @@ const Inventory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [totalItems, setTotalItems] = useState(0);
+
   // Filter states
   const [brand, setBrand] = useState('');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]);
@@ -53,7 +60,13 @@ const Inventory: React.FC = () => {
   useEffect(() => {
     fetchCars();
     fetchFilterOptions();
+    // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    fetchCars();
+    // eslint-disable-next-line
+  }, [currentPage, itemsPerPage]);
 
   const fetchFilterOptions = async () => {
     try {
@@ -78,10 +91,13 @@ const Inventory: React.FC = () => {
           max_year: yearRange[1],
           fuel_type: fuelType,
           transmission,
-          sort_by: sortBy
+          sort_by: sortBy,
+          page: currentPage,
+          limit: itemsPerPage
         }
       });
-      setCars(response.data);
+      setCars(response.data.cars || response.data); // fallback for old API
+      setTotalItems(response.data.total || response.data.totalItems || response.data.count || (response.data.cars ? response.data.cars.length : response.data.length));
     } catch (err: any) {
       setError(err.message || 'Error fetching cars');
     } finally {
@@ -90,6 +106,7 @@ const Inventory: React.FC = () => {
   };
 
   const handleFilter = () => {
+    setCurrentPage(1);
     fetchCars();
   };
 
@@ -100,7 +117,17 @@ const Inventory: React.FC = () => {
     setFuelType('');
     setTransmission('');
     setSortBy('price_asc');
+    setCurrentPage(1);
     fetchCars();
+  };
+
+  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<{ value: unknown }>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1);
   };
 
   if (loading) {
@@ -278,6 +305,35 @@ const Inventory: React.FC = () => {
           ))
         )}
       </Grid>
+
+      {/* Pagination and Results Per Page */}
+      <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} alignItems="center" justifyContent="space-between" mt={4}>
+        <FormControl sx={{ minWidth: 120, mb: { xs: 2, md: 0 } }} size="small">
+          <InputLabel id="results-per-page-label">Results per page</InputLabel>
+          <Select
+            labelId="results-per-page-label"
+            value={itemsPerPage}
+            label="Results per page"
+            onChange={handleItemsPerPageChange}
+          >
+            <MenuItem value={5}>5</MenuItem>
+            <MenuItem value={10}>10</MenuItem>
+            <MenuItem value={20}>20</MenuItem>
+            <MenuItem value={50}>50</MenuItem>
+            <MenuItem value={100}>100</MenuItem>
+          </Select>
+        </FormControl>
+        <Stack spacing={2}>
+          <Pagination
+            count={Math.ceil(totalItems / itemsPerPage) || 1}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+          />
+        </Stack>
+      </Box>
     </Container>
   );
 };
