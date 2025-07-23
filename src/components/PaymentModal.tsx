@@ -8,7 +8,7 @@ interface PaymentModalProps {
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
-  const [paymentType, setPaymentType] = useState<'reserve' | 'service'>('reserve');
+  const [paymentType] = useState<'service'>('service');
   const [vin, setVin] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +16,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
   const [success, setSuccess] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<typeof vehicles[0] | null>(null);
   const [vinChecked, setVinChecked] = useState(false);
+  // For alert pop message
+  const [showHoldAlert, setShowHoldAlert] = useState(false);
 
   const handleVinCheck = () => {
     if (vin.length !== 4) {
@@ -107,6 +109,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
             </button>
           </div>
 
+          {/* Alert for hold with deposit in progress */}
+          {showHoldAlert && (
+            <div className="mb-4 p-3 bg-yellow-50 text-yellow-800 rounded-md text-center">
+              This feature is in progress.
+              <button
+                className="ml-4 text-sm text-blue-700 underline"
+                onClick={() => setShowHoldAlert(false)}
+              >
+                Close
+              </button>
+            </div>
+          )}
+
           {success ? (
             <div className="text-center py-6">
               <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-100 text-green-700 mb-4">
@@ -123,98 +138,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
             <form onSubmit={handleSubmit}>
               <div className="mb-6">
                 <label className="form-label">Payment Type</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaymentType('reserve');
-                      resetForm();
-                    }}
-                    className={`flex items-center justify-center p-4 rounded-lg border-2 ${
-                      paymentType === 'reserve'
-                        ? 'border-blue-700 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-700'
-                    }`}
-                  >
-                    <Car className={`h-6 w-6 mr-2 ${
-                      paymentType === 'reserve' ? 'text-blue-700' : 'text-gray-500'
-                    }`} />
-                    <span className={paymentType === 'reserve' ? 'text-blue-700' : 'text-gray-700'}>
-                      Reserve Vehicle
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaymentType('service');
-                      resetForm();
-                    }}
-                    className={`flex items-center justify-center p-4 rounded-lg border-2 ${
-                      paymentType === 'service'
-                        ? 'border-blue-700 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-700'
-                    }`}
-                  >
-                    <Wrench className={`h-6 w-6 mr-2 ${
-                      paymentType === 'service' ? 'text-blue-700' : 'text-gray-500'
-                    }`} />
-                    <span className={paymentType === 'service' ? 'text-blue-700' : 'text-gray-700'}>
-                      Pay for Service
-                    </span>
-                  </button>
+                <div className="flex items-center p-4 rounded-lg border-2 border-blue-700 bg-blue-50">
+                  <Wrench className="h-6 w-6 mr-2 text-blue-700" />
+                  <span className="text-blue-700 font-medium">Pay for Service</span>
                 </div>
               </div>
-
-              {paymentType === 'reserve' && (
-                <div className="mb-6">
-                  <label className="form-label">Last 4 Digits of VIN</label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={vin}
-                      onChange={(e) => {
-                        setVin(e.target.value.toUpperCase());
-                        setVinChecked(false);
-                        setSelectedVehicle(null);
-                        setError('');
-                      }}
-                      maxLength={4}
-                      placeholder="Enter last 4 digits"
-                      required
-                      className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleVinCheck}
-                      className="btn-outline"
-                    >
-                      Check VIN
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    This helps us identify the vehicle you want to reserve
-                  </p>
-
-                  {/* Vehicle Details */}
-                  {selectedVehicle && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium mb-2">Vehicle Details</h4>
-                      <div className="space-y-2">
-                        <p className="text-sm">
-                          <span className="font-medium">Vehicle:</span> {selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model}
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Price:</span> ${selectedVehicle.price.toLocaleString()}
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Status:</span>{' '}
-                          <span className="text-green-700">Available</span>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               <div className="mb-6">
                 <label className="form-label">Amount ($)</label>
@@ -233,11 +161,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
                     className="w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   />
                 </div>
-                {paymentType === 'reserve' && selectedVehicle && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Minimum reservation amount: ${(selectedVehicle.price * 0.1).toLocaleString()}
-                  </p>
-                )}
               </div>
 
               {error && (

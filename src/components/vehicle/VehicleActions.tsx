@@ -208,13 +208,20 @@ const VehicleActions: React.FC<VehicleActionsProps> = ({
             </button>
 
             <button
-              onClick={handleHoldPayment}
-              disabled={loading || !isAvailable}
-              className="w-full py-4 px-6 rounded-xl font-semibold text-base bg-green-600 text-white hover:bg-green-700 transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+              disabled
+              className="w-full py-4 px-6 rounded-xl font-semibold text-base bg-gray-200 text-gray-400 flex items-center justify-center cursor-not-allowed opacity-70"
+              onClick={() => setShowAlert(true)}
             >
               <ShieldCheck className="w-5 h-5 mr-2" />
-              {loading ? 'Processing...' : `Hold with $${HOLD_PAYMENT_AMOUNT} Deposit`}
+              Hold with $500 Deposit (Coming Soon)
             </button>
+            {showAlert && (
+              <Alert
+                type="info"
+                message="The hold with deposit feature is currently disabled and will be available in a future update."
+                onClose={() => setShowAlert(false)}
+              />
+            )}
 
             {/* Payment Information */}
             {isAvailable && (
