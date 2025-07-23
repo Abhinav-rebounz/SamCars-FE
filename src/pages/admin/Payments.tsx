@@ -292,12 +292,10 @@ const Payments: React.FC = () => {
               className="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <Download className="h-5 w-5 mr-2" />
-              Export
+              Download
             </button>
           </div>
         </div>
-
-
       </div>
       
       {/* Filters and Search */}
