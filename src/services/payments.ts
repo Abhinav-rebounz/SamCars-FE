@@ -1,4 +1,4 @@
-import { api, API_ENDPOINTS, handleApiError } from '../config/api';
+import { api, API_ENDPOINTS } from '../config/api';
 import { AxiosError } from 'axios';
 
 interface CheckoutSession {
@@ -35,9 +35,13 @@ export const createCheckoutSession = async ({
       url: response.data.url,
       sessionId: response.data.sessionId
     };
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    throw new Error(handleApiError(error));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      // handle error appropriately, e.g., throw or return error
+      throw error;
+    } else {
+      throw new Error('Payment failed');
+    }
   }
 };
 

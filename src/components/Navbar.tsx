@@ -37,9 +37,6 @@ const Navbar: React.FC = () => {
             <Link to="/inventory" className="text-gray-700 hover:text-blue-700 font-medium">
               Inventory
             </Link>
-            <Link to="/sell-car" className="text-gray-700 hover:text-blue-700 font-medium">
-              Sell Your Car
-            </Link>
             {/* <Link to="/services" className="text-gray-700 hover:text-blue-700 font-medium">
               Services
             </Link> */}
@@ -111,13 +108,6 @@ const Navbar: React.FC = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Inventory
-              </Link>
-              <Link 
-                to="/sell-car" 
-                className="text-gray-700 hover:text-blue-700 font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Sell Your Car
               </Link>
               <Link 
                 to="/services" 

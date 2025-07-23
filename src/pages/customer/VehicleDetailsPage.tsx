@@ -51,8 +51,6 @@ const VehicleDetailsPage: React.FC = () => {
   const [showTestDriveForm, setShowTestDriveForm] = useState(false);
   const [testDriveDate, setTestDriveDate] = useState('');
   const [testDriveTime, setTestDriveTime] = useState('');
-  const [testDriveSubmitted, setTestDriveSubmitted] = useState(false);
-  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -85,35 +83,6 @@ const VehicleDetailsPage: React.FC = () => {
     fetchVehicle();
   }, [id, isAuthenticated]);
 
-  const handleImageError = (index: number) => {
-    setImageErrors(prev => new Set(prev).add(index));
-  };
-
-  const nextImage = () => {
-    if (!vehicle?.images) return;
-    const imagesLength = vehicle.images.length;
-    setCurrentImageIndex((prev) => 
-      prev === imagesLength - 1 ? 0 : prev + 1
-    );
-  };
-
-  const previousImage = () => {
-    if (!vehicle?.images) return;
-    const imagesLength = vehicle.images.length;
-    setCurrentImageIndex((prev) => 
-      prev === 0 ? imagesLength - 1 : prev + 1
-    );
-  };
-  
-  const handleTestDriveSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setTestDriveSubmitted(true);
-    setTimeout(() => {
-      setShowTestDriveForm(false);
-      setTestDriveSubmitted(false);
-    }, 3000);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -145,8 +114,6 @@ const VehicleDetailsPage: React.FC = () => {
       </div>
     );
   }
-
-  const price = parseFloat(vehicle.price);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
