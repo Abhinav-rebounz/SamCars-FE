@@ -5,20 +5,15 @@ import { getBusinessSettings, type BusinessSettings } from '../services/business
 
 const Footer: React.FC = () => {
   const [businessData, setBusinessData] = useState<BusinessSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchBusinessSettings = async () => {
       try {
-        setIsLoading(true);
         const settings = await getBusinessSettings();
         setBusinessData(settings);
       } catch (err) {
         console.error('Failed to fetch business settings:', err);
-        setError('Failed to load business information');
       } finally {
-        setIsLoading(false);
       }
     };
 

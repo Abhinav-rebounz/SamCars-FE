@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, SlidersHorizontal, ChevronLeft, ChevronRight, AlertCircle, X } from 'lucide-react';
+import { Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import VehicleCard from '../../components/VehicleCard';
 import { getInventory, type InventoryFilters, type PaginationInfo, type FilterStats } from '../../services/inventory';
 import { Vehicle as VehicleType } from '../../types/vehicle';
-import LoadingState from '../../components/LoadingState';
 import AlertState from '../../components/ErrorState';
 import useDebounce from '../../hooks/useDebounce';
 
@@ -15,7 +14,7 @@ const InventoryPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  // Removed unused isFilterOpen state
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
   const [searchInput, setSearchInput] = useState('');
@@ -330,7 +329,7 @@ const InventoryPage: React.FC = () => {
                   {vehicles.map(vehicle => (
                     <VehicleCard
                       key={vehicle.id}
-                      id={vehicle.id}
+                      id={Number(vehicle.id)}
                       make={vehicle.make}
                       model={vehicle.model}
                       year={vehicle.year ?? 0}

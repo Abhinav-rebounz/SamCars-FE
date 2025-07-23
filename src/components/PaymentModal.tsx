@@ -1,5 +1,5 @@
+import { DollarSign, Wrench, X } from 'lucide-react';
 import React, { useState } from 'react';
-import { DollarSign, Car, Wrench, X } from 'lucide-react';
 import { vehicles } from '../data/vehicles';
 
 interface PaymentModalProps {
@@ -8,46 +8,13 @@ interface PaymentModalProps {
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
-  const [paymentType] = useState<'service'>('service');
-  const [vin, setVin] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<typeof vehicles[0] | null>(null);
-  const [vinChecked, setVinChecked] = useState(false);
   // For alert pop message
   const [showHoldAlert, setShowHoldAlert] = useState(false);
-
-  const handleVinCheck = () => {
-    if (vin.length !== 4) {
-      setError('Please enter exactly 4 digits of the VIN');
-      return;
-    }
-
-    // Find vehicle with matching last 4 digits of VIN
-    const vehicle = vehicles.find(v => v.vin.slice(-4) === vin);
-    
-    if (!vehicle) {
-      setError('No vehicle found with this VIN');
-      setSelectedVehicle(null);
-      setVinChecked(true);
-      return;
-    }
-
-    if (vehicle.isSold) {
-      setError('This vehicle is already sold');
-      setSelectedVehicle(null);
-      setVinChecked(true);
-      return;
-    }
-
-    setSelectedVehicle(vehicle);
-    setError('');
-    setVinChecked(true);
-    // Set default amount to 10% of vehicle price for reservation
-    setAmount((vehicle.price * 0.1).toString());
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,24 +22,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      if (paymentType === 'reserve') {
-        if (!selectedVehicle) {
-          throw new Error('Please check VIN first');
-        }
-
-        const response = await makePayment({
-          type: 'reserve',
-          amount: parseFloat(amount),
-          vehicle_id: selectedVehicle.id,
-          user_id: user?.id // Get from auth context
-        });
-
-        if (response.success && response.data?.url) {
-          window.location.href = response.data.url;
-        } else {
-          throw new Error(response.error || 'Payment initialization failed');
-        }
+      if (!selectedVehicle) {
+        throw new Error('Please check VIN first');
       }
+
+      // const response = await makePayment({
+      //   type: 'reserve',
+      //   amount: parseFloat(amount),
+      //   vehicle_id: selectedVehicle.id,
+      // });
+
+      // if (response.success && response.data?.url) {
+      //   window.location.href = response.data.url;
+      // } else {
+      //   throw new Error(response.error || 'Payment initialization failed');
+      // }
 
       setSuccess(true);
       setTimeout(() => {
@@ -88,11 +52,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
 
   const resetForm = () => {
     setSuccess(false);
-    setVin('');
     setAmount('');
-    setPaymentType('reserve');
     setSelectedVehicle(null);
-    setVinChecked(false);
     setError('');
   };
 
@@ -129,9 +90,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
               </div>
               <h3 className="text-xl font-semibold mb-2">Payment Successful!</h3>
               <p className="text-gray-600">
-                {paymentType === 'reserve' 
-                  ? 'Your vehicle reservation has been confirmed.' 
-                  : 'Your service payment has been processed.'}
+                Your vehicle reservation has been confirmed.
               </p>
             </div>
           ) : (
@@ -179,7 +138,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || (paymentType === 'reserve' && !selectedVehicle)}
+                  disabled={loading}
                   className="btn-primary disabled:opacity-50"
                 >
                   {loading ? 'Processing...' : 'Make Payment'}

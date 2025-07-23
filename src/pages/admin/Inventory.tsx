@@ -1,33 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getInventory, deleteVehicle } from '../../services/inventory';
-import { Vehicle as VehicleType } from '../../types/vehicle';
-import AddVehicleForm from '../../components/inventory/AddVehicleForm';
-import LoadingState from '../../components/LoadingState';
-import AlertState from '../../components/ErrorState';
-import useDebounce from '../../hooks/useDebounce';
 import {
+  AlertCircle,
+  Calendar,
+  Car,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
+  Clock,
+  DollarSign,
   Edit,
   Filter,
-  Plus,
-  Search,
-  Trash2,
   Image as ImageIcon,
-  ExternalLink,
-  Car,
-  Calendar,
-  DollarSign,
-  Tag,
-  Eye,
-  MoreVertical,
-  Clock,
+  Plus,
   RefreshCw,
-  CheckCircle,
-  AlertCircle,
+  Search,
+  Tag,
+  Trash2,
   X
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AlertState from '../../components/ErrorState';
+import AddVehicleForm from '../../components/inventory/AddVehicleForm';
+import useDebounce from '../../hooks/useDebounce';
+import { deleteVehicle, getInventory } from '../../services/inventory';
+import { Vehicle as VehicleType } from '../../types/vehicle';
 
 type Vehicle = VehicleType;
 
@@ -92,9 +88,10 @@ const Inventory: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      const validSortFields = ['date_added', 'price', 'year', 'mileage', 'make'];
       const filters = {
         search: debouncedSearch,
-        sort_by: sortField,
+        sort_by: validSortFields.includes(sortField) ? sortField as any : 'date_added',
         sort_order: sortDirection,
         page: currentPage,
         limit: itemsPerPage,
@@ -104,7 +101,7 @@ const Inventory: React.FC = () => {
       console.log('API response:', response);
       if (response.success && response.vehicles) {
         setVehicles(response.vehicles);
-        setPagination(response.pagination);
+        setPagination(response.pagination || null);
       } else {
         setError(response.error || 'Failed to fetch vehicles');
       }
@@ -159,11 +156,6 @@ const Inventory: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleDelete = (id: string | number) => {
-    setSelectedVehicleId(id.toString());
-    setShowDeleteModal(true);
-  };
-
   const confirmDelete = async () => {
     if (!selectedVehicleId) return;
     try {
@@ -205,12 +197,6 @@ const Inventory: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleEdit = (vehicle: Vehicle) => {
-    console.log('Editing vehicle:', vehicle);
-    setSelectedVehicle(vehicle);
-    setShowEditModal(true);
-  };
-
   const handleEditComplete = () => {
     setShowEditModal(false);
     setSelectedVehicle(null);
@@ -233,10 +219,10 @@ const Inventory: React.FC = () => {
     }, 3000);
   };
 
-  const handleImageError = (vehicleId: string) => {
+  const handleImageError = (vehicleId: string | number) => {
     setImageErrors(prev => ({
       ...prev,
-      [vehicleId]: true
+      [vehicleId.toString()]: true
     }));
   };
 
@@ -551,7 +537,7 @@ const Inventory: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-600">
                             <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                            {new Date(vehicle.created_at).toLocaleDateString()}
+                            {vehicle.created_at ? new Date(vehicle.created_at).toLocaleDateString() : 'N/A'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -745,10 +731,7 @@ const Inventory: React.FC = () => {
 
                 <AddVehicleForm
                   onSuccess={handleAddComplete}
-                  onCancel={closeAddModal}
                   isEditing={false}
-                  onSuccessMessage={setFormSuccessMessage}
-                  onErrorMessage={setFormErrorMessage}
                 />
               </div>
             </div>
@@ -790,10 +773,7 @@ const Inventory: React.FC = () => {
                 <AddVehicleForm
                   initialData={selectedVehicle}
                   onSuccess={handleEditComplete}
-                  onCancel={() => setShowEditModal(false)}
                   isEditing={true}
-                  onSuccessMessage={setFormSuccessMessage}
-                  onErrorMessage={setFormErrorMessage}
                 />
               </div>
             </div>

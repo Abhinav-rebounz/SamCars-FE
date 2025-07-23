@@ -278,7 +278,7 @@ export const updateAuctionPurchase = async (purchaseData: FormData): Promise<Add
     }
 
     // Keep id in formData as it's needed in the backend
-    const response = await api.put(`${API_ENDPOINTS.UPDATE_AUCTION_PURCHASE(auctionId)}?auction_id=${auctionId}`, purchaseData, {
+    const response = await api.put(`${API_ENDPOINTS.UPDATE_AUCTION_PURCHASE()}?auction_id=${auctionId}`, purchaseData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }

@@ -50,7 +50,8 @@ export const verifyVin = async (lastFourDigits: string) => {
     const response = await api.get(`${API_ENDPOINTS.VEHICLES}?vin=${lastFourDigits}`);
     return { success: true, data: response.data };
   } catch (error) {
-    return { success: false, error: error.response?.data?.message || 'VIN verification failed' };
+    const axiosError = error as any;
+    return { success: false, error: axiosError.response?.data?.message || 'VIN verification failed' };
   }
 };
 

@@ -1,13 +1,11 @@
 import { ArrowLeft, Check } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
 import VehicleActions from '../../components/vehicle/VehicleActions';
 import VehicleImageGallery from '../../components/vehicle/VehicleImageGallery';
 import { getVehicleById } from '../../services/vehicle';
 import { checkWishlist } from '../../services/wishlist';
-import LoadingState from '../../components/LoadingState';
 import AlertState from '../../components/ErrorState';
 
 interface Vehicle {
@@ -44,14 +42,9 @@ const VehicleDetailsPage: React.FC = () => {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [isInWishlist, setIsInWishlist] = useState(false);
   
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [showTestDriveForm, setShowTestDriveForm] = useState(false);
-  const [testDriveDate, setTestDriveDate] = useState('');
-  const [testDriveTime, setTestDriveTime] = useState('');
-
   useEffect(() => {
     const fetchVehicle = async () => {
       if (!id) {

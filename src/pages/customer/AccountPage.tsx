@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { User, CreditCard, LogOut, Calendar, Phone, Mail, IdCard, Clock, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { User, CreditCard, LogOut, Clock, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateProfile, fetchUserProfile, requestEmailVerification } from '../../services/auth';
 import Toast from '../../components/Toast';
@@ -32,8 +32,8 @@ const AccountPage: React.FC = () => {
     dateOfBirth: formatDateForInput(user?.dateOfBirth) || ''
   });
   const [profileLoading, setProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [profileError] = useState<string | null>(null);
+  const [profileSuccess] = useState<string | null>(null);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [toast, setToast] = useState<{
     show: boolean;

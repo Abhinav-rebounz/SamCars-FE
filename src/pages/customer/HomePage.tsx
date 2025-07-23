@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, Shield, ThumbsUp, Clock, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Shield, ThumbsUp, Clock, ArrowRight } from 'lucide-react';
 import { getInventory } from '../../services/inventory';
 import VehicleCard from '../../components/VehicleCard';
 
@@ -11,26 +11,7 @@ const HomePage: React.FC = () => {
 
   // Remove all state and logic related to the search section
 
-  // Model options based on make
-  const modelOptions: Record<string, string[]> = {
-    Toyota: ['Camry', 'Corolla', 'RAV4', 'Highlander'],
-    Honda: ['Civic', 'Accord', 'CR-V', 'Pilot'],
-    Ford: ['F-150', 'Escape', 'Explorer', 'Mustang'],
-    BMW: ['3 Series', '5 Series', 'X3', 'X5'],
-    Chevrolet: ['Silverado', 'Equinox', 'Malibu', 'Tahoe'],
-  };
-
-  // Price range mapping
-  const priceRanges = [
-    { label: 'Any Price', min: '', max: '' },
-    { label: 'Under $20,000', min: '', max: '20000' },
-    { label: '$20,000 - $30,000', min: '20000', max: '30000' },
-    { label: '$30,000 - $40,000', min: '30000', max: '40000' },
-    { label: '$40,000 - $50,000', min: '40000', max: '50000' },
-    { label: 'Over $50,000', min: '50000', max: '' },
-  ];
-
-  const navigate = useNavigate();
+  // Removed unused modelOptions, priceRanges, and navigate
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -42,8 +23,7 @@ const HomePage: React.FC = () => {
           limit: 3, 
           page: 1, 
           sort_by: 'date_added', 
-          sort_order: 'desc',
-          tags: 'Featured'
+          sort_order: 'desc'
         });
         if (response.success && response.vehicles) {
           setFeaturedVehicles(response.vehicles);

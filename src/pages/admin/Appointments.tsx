@@ -69,34 +69,6 @@ const Appointments: React.FC = () => {
     },
   ];
   
-  const handlePrevious = () => {
-    const newDate = new Date(currentDate);
-    if (view === 'day') {
-      newDate.setDate(newDate.getDate() - 1);
-    } else if (view === 'week') {
-      newDate.setDate(newDate.getDate() - 7);
-    } else {
-      newDate.setMonth(newDate.getMonth() - 1);
-    }
-    setCurrentDate(newDate);
-  };
-  
-  const handleNext = () => {
-    const newDate = new Date(currentDate);
-    if (view === 'day') {
-      newDate.setDate(newDate.getDate() + 1);
-    } else if (view === 'week') {
-      newDate.setDate(newDate.getDate() + 7);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setCurrentDate(newDate);
-  };
-  
-  const handleToday = () => {
-    setCurrentDate(new Date());
-  };
-  
   const handleViewAppointment = (appointment: any) => {
     setSelectedAppointment(appointment);
   };

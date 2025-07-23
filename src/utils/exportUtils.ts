@@ -6,10 +6,7 @@ import Papa from 'papaparse';
 import * as xmlbuilder from 'xmlbuilder';
 
 // Type declarations for external libraries
-declare module 'jspdf-autotable' {
-  const autoTable: (doc: jsPDF, options: any) => void;
-  export default autoTable;
-}
+// Remove invalid module augmentation for jspdf-autotable
 
 export interface PaymentExportData {
   id: string;
@@ -214,7 +211,7 @@ export const exportToXML = (payments: PaymentExportData[], filename: string = 'p
       .att('totalCount', payments.length.toString());
 
     payments.forEach(payment => {
-      const paymentElement = xmlDoc.ele('payment')
+      xmlDoc.ele('payment')
         .ele('id', payment.id).up()
         .ele('customer', payment.customer).up()
         .ele('description', payment.description).up()

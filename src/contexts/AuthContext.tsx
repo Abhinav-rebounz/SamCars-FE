@@ -96,6 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const parsedUser = JSON.parse(storedUser);
         setUser({
           ...parsedUser,
+          userId: String(parsedUser.userId),
           name: `${parsedUser.firstName} ${parsedUser.lastName}`
         });
       } catch (error) {
@@ -138,7 +139,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const result = await loginService(email, password);
       
       if (result.success && result.user) {
-        setUser(result.user);
+        setUser({ ...result.user, userId: String(result.user.userId) });
         return { success: true };
       } else {
         const errorMessage = result.error || 'Login failed';
@@ -167,7 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const result = await registerService(firstName, lastName, email, password);
       
       if (result.success && result.user) {
-        setUser(result.user);
+        setUser({ ...result.user, userId: String(result.user.userId) });
         return { success: true };
       } else {
         const errorMessage = result.error || 'Registration failed';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const MainLayout: React.FC = () => {
@@ -60,7 +60,7 @@ const MainLayout: React.FC = () => {
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4">
                   <span className="text-gray-700">
-                    Welcome, {user?.first_name}
+                    Welcome, {user?.firstName}
                   </span>
                   <button
                     onClick={handleLogout}

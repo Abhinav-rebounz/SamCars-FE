@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyEmail } from '../../services/auth';
 import { useAuth } from '../../contexts/AuthContext';
-import { CheckCircle, XCircle, Car, ArrowLeft, RefreshCcw } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, RefreshCcw } from 'lucide-react';
 
 const VerifyEmail: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -26,10 +26,16 @@ const VerifyEmail: React.FC = () => {
           setStatus('success');
           setMessage('Your email has been verified successfully!');
           // Update user state to reflect verified email
-          setUser(currentUser => currentUser ? {
-            ...currentUser,
-            emailVerified: true
-          } : null);
+          if (typeof setUser === 'function' && typeof window !== 'undefined') {
+            // Get the current user from localStorage or context
+            const storedUser = localStorage.getItem('user');
+            let currentUser = storedUser ? JSON.parse(storedUser) : null;
+            if (currentUser) {
+              currentUser.emailVerified = true;
+              setUser({ ...currentUser });
+              localStorage.setItem('user', JSON.stringify(currentUser));
+            }
+          }
         } else {
           setStatus('error');
           setMessage(response.message || 'Failed to verify email.');

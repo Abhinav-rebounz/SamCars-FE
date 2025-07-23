@@ -1,31 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import {
+  Calendar,
+  Car,
+  CheckCircle,
+  DollarSign,
+  FileText,
+  Fuel,
+  Gauge,
+  Hash,
+  Image as ImageIcon,
+  MapPin,
+  Palette,
+  Plus,
+  Settings,
+  Shield,
+  Star,
+  Tag,
+  Upload,
+  Wrench,
+  Zap
+} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { addVehicle, updateVehicle } from '../../services/inventory';
 import { Vehicle } from '../../types/vehicle';
-import AlertState from '../ErrorState';
-import { 
-  X, 
-  DollarSign, 
-  Car, 
-  Calendar, 
-  Tag, 
-  Image as ImageIcon,
-  Upload,
-  Trash2,
-  Plus,
-  FileText,
-  Settings,
-  Star,
-  MapPin,
-  Hash,
-  Palette,
-  Gauge,
-  Wrench,
-  Fuel,
-  Zap,
-  Shield,
-  Award,
-  CheckCircle
-} from 'lucide-react';
 
 interface ExistingImage {
   id?: string;
@@ -36,19 +32,13 @@ interface ExistingImage {
 interface AddVehicleFormProps {
   initialData?: Vehicle;
   onSuccess: () => void;
-  onCancel: () => void;
   isEditing?: boolean;
-  onSuccessMessage?: (message: string) => void;
-  onErrorMessage?: (message: string) => void;
 }
 
 const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
   initialData,
   onSuccess,
-  onCancel,
   isEditing = false,
-  onSuccessMessage,
-  onErrorMessage
 }) => {
   const [formData, setFormData] = useState({
     make: '',
@@ -73,12 +63,10 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
     location: '',
     stock_number: '',
     is_featured: false,
-    sold_price: ''
+    sold_price: String(initialData?.sold_price || '')
   });
 
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -110,7 +98,7 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         location: initialData.location || '',
         stock_number: initialData.stock_number || '',
         is_featured: initialData.is_featured || false,
-        sold_price: initialData.sold_price || ''
+        sold_price: String(initialData.sold_price || '')
       });
       
       // Load existing images for edit - handle both string array and object array formats
@@ -163,8 +151,6 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
     }
     
     // Clear any previous error or success messages
-    setError(null);
-    setSuccess(null);
   }, [initialData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -245,20 +231,18 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+    setLoading(true);   
 
     // Basic validation
     if (!formData.make || !formData.model || !formData.year || !formData.price || !formData.vin || !formData.mileage || !formData.transmission || !formData.body_type || !formData.fuel_type || !formData.condition || !formData.description) {
-      setError('Please fill in all required fields (Make, Model, Year, Price, VIN, Mileage, Transmission, Body Type, Fuel Type, Condition, Description)');
+      alert('Please fill in all required fields (Make, Model, Year, Price, VIN, Mileage, Transmission, Body Type, Fuel Type, Condition, Description)');
       setLoading(false);
       return;
     }
 
     // VIN validation (if provided)
     if (formData.vin && formData.vin.length < 10) {
-      setError('VIN must be at least 10 characters long');
+      alert('VIN must be at least 10 characters long');
       setLoading(false);
       return;
     }
@@ -268,7 +252,7 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
       try {
         new URL(formData.carfax_link);
       } catch (error) {
-        setError('Please enter a valid Carfax URL');
+        alert('Please enter a valid Carfax URL');
         setLoading(false);
         return;
       }
@@ -290,7 +274,7 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
       });
 
       // Add new images
-      newImages.forEach((file, index) => {
+      newImages.forEach((file) => {
         formDataToSend.append('images', file);
       });
 
@@ -323,23 +307,12 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         console.log('Update response:', response);
         
         if (response.success) {
-          const successMsg = 'Vehicle updated successfully!';
-          if (onSuccessMessage) {
-            onSuccessMessage(successMsg);
-          } else {
-            setSuccess(successMsg);
-          }
           setTimeout(() => {
             onSuccess();
           }, 1500);
         } else {
           console.error('Update failed:', response.error);
-          const errorMsg = response.error || 'Failed to update vehicle';
-          if (onErrorMessage) {
-            onErrorMessage(errorMsg);
-          } else {
-            setError(errorMsg);
-          }
+          alert(response.error || 'Failed to update vehicle');
         }
       } else {
         const response = await addVehicle(formDataToSend);
@@ -350,28 +323,17 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         
         if (response.success) {
           console.log('Setting success message');
-          const successMsg = 'Vehicle added successfully!';
-          if (onSuccessMessage) {
-            onSuccessMessage(successMsg);
-          } else {
-            setSuccess(successMsg);
-          }
           setTimeout(() => {
             onSuccess();
           }, 1500);
         } else {
           console.error('Add failed:', response.error);
-          const errorMsg = response.error || 'Failed to add vehicle';
-          if (onErrorMessage) {
-            onErrorMessage(errorMsg);
-          } else {
-            setError(errorMsg);
-          }
+          alert(response.error || 'Failed to add vehicle');
         }
       }
     } catch (err) {
       console.error('Form submission error:', err);
-      setError('An error occurred while saving the vehicle. Please try again.');
+      alert('An error occurred while saving the vehicle. Please try again.');
     } finally {
       setLoading(false);
     }

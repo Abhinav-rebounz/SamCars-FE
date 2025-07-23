@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, RefreshCw, Wifi, WifiOff, Server, Database, Globe, CheckCircle, X } from 'lucide-react';
+import { AlertCircle, RefreshCw, WifiOff, Server, Database, Globe, CheckCircle, X } from 'lucide-react';
 
 interface AlertStateProps {
   error?: string | null;

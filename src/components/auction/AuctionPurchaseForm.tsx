@@ -1,17 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { addAuctionPurchase, updateAuctionPurchase } from '../../services/auction';
 import { 
   X, 
   DollarSign, 
   Car, 
   Calendar, 
-  Tag, 
   Image as ImageIcon,
   CheckCircle,
   AlertCircle,
   Upload,
-  Trash2,
-  Plus,
   FileText,
   Settings,
   Star
@@ -57,7 +54,6 @@ interface FormData {
 interface AuctionPurchaseFormProps {
   initialData?: any;
   onSuccess: () => void;
-  onCancel: () => void;
   isEditing?: boolean;
 }
 
@@ -93,7 +89,6 @@ const INITIAL_FORM_DATA: FormData = {
 const AuctionPurchaseForm: React.FC<AuctionPurchaseFormProps> = ({
   initialData,
   onSuccess,
-  onCancel,
   isEditing = false
 }) => {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);

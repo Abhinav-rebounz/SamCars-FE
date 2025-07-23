@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Menu, X, ShoppingCart, Heart, User } from 'lucide-react';
+import { Car, Menu, X, Heart, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useCart } from '../contexts/CartContext';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
-  const { totalItems } = useCart();
   const navigate = useNavigate();
   
   const handleLogout = () => {

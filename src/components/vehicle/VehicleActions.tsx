@@ -15,8 +15,6 @@ interface VehicleActionsProps {
   isInWishlist?: boolean;
 }
 
-const HOLD_PAYMENT_AMOUNT = 500; // $500 hold payment
-
 const VehicleActions: React.FC<VehicleActionsProps> = ({ 
   vehicleId, 
   price, 
@@ -65,39 +63,6 @@ const VehicleActions: React.FC<VehicleActionsProps> = ({
     } catch (err) {
       console.error('Payment error:', err);
       setError('Failed to process payment. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleHoldPayment = async () => {
-    if (!isAuthenticated || !user?.userId) {
-      navigate('/login', { state: { from: window.location.pathname } });
-      return;
-    }
-
-    if (!isAvailable) {
-      setError('This vehicle is not available.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const session = await createCheckoutSession({
-        vehicleId,
-        userId: user.userId,
-        amount: HOLD_PAYMENT_AMOUNT,
-        type: 'hold'
-      });
-      if (session.url) {
-        window.location.href = session.url;
-      } else {
-        setError('Failed to create hold payment session');
-      }
-    } catch (err) {
-      console.error('Hold payment error:', err);
-      setError('Failed to process hold payment. Please try again.');
     } finally {
       setLoading(false);
     }

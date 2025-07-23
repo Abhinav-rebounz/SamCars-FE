@@ -10,37 +10,27 @@ import {
   RefreshCw,
   FileText,
   Plus,
-  X,
   User,
   Calendar,
   CreditCard,
-  FileText as FileTextIcon,
-  TrendingUp,
-  AlertCircle,
   CheckCircle,
   Clock,
   Car,
   Receipt,
   ExternalLink,
-  Eye,
   Edit,
   Trash2,
   XCircle,
-  AlertTriangle,
-  Wrench,
-  BarChart3,
-  FileSpreadsheet
+  Wrench
 } from 'lucide-react';
 import { fetchPayments, deletePayment } from '../../services/payments';
 import ManualPaymentModal from '../../components/admin/ManualPaymentModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import ExportModal from '../../components/admin/ExportModal';
-import LoadingSpinner from '../../components/LoadingSpinner';
-import LoadingState from '../../components/LoadingState';
 import AlertState from '../../components/ErrorState';
 import Toast from '../../components/Toast';
 import { Payment } from '../../types/payment';
-import { PaymentExportData, ExportFormat } from '../../utils/exportUtils';
+import { PaymentExportData } from '../../utils/exportUtils';
 
 interface Pagination {
   current_page: number;
@@ -71,7 +61,6 @@ const Payments: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showManualPaymentModal, setShowManualPaymentModal] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -205,12 +194,6 @@ const Payments: React.FC = () => {
     setSelectedPayment(payment);
   };
   
-  const handleRefund = () => {
-    // In a real app, this would process a refund
-    alert(`Refund processed for payment ${selectedPayment?.id}`);
-    setSelectedPayment(null);
-  };
-  
   const handleExport = () => {
     setShowExportModal(true);
   };
@@ -250,7 +233,6 @@ const Payments: React.FC = () => {
 
   const handleDeletePayment = async () => {
     if (!selectedPayment) return;
-    setIsDeleting(true);
     try {
       const response = await deletePayment(selectedPayment.id);
       if (response.success) {
@@ -265,7 +247,6 @@ const Payments: React.FC = () => {
       setToastMessage('Failed to delete payment');
       setToastType('error');
     } finally {
-      setIsDeleting(false);
       setShowDeleteConfirmation(false);
     }
   };
@@ -890,7 +871,7 @@ const Payments: React.FC = () => {
                     {/* Payment Method Details */}
                     <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <BarChart3 className="h-5 w-5 text-gray-600 mr-2" />
+                        <CreditCard className="h-5 w-5 text-gray-600 mr-2" />
                         Payment Method Details
                       </h3>
                       <div className="space-y-3">
@@ -1029,7 +1010,6 @@ const Payments: React.FC = () => {
           isOpen={showDeleteConfirmation}
           onClose={() => setShowDeleteConfirmation(false)}
           onConfirm={handleDeletePayment}
-          isLoading={isDeleting}
           title="Delete Payment"
           message={`Are you sure you want to delete payment #${selectedPayment?.id}? This action cannot be undone.`}
         />

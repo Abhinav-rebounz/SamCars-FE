@@ -549,7 +549,6 @@ const AuctionDetails: React.FC = () => {
                     <AuctionPurchaseForm
                       initialData={auction}
                       onSuccess={handleEditComplete}
-                      onCancel={() => setShowEditModal(false)}
                       isEditing={true}
                     />
                   </div>

@@ -1,18 +1,15 @@
+import {
+  Building,
+  Car,
+  DollarSign,
+  Gavel,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  User
+} from 'lucide-react';
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Car, 
-  LayoutDashboard, 
-  Calendar, 
-  DollarSign, 
-  Gavel, 
-  Wrench, 
-  LogOut,
-  User,
-  Home,
-  Building,
-  Settings
-} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const AdminSidebar: React.FC = () => {

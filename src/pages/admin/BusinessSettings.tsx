@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Mail, Phone, Save, Edit, X, Clock } from 'lucide-react';
+import { Mail, Phone, Save, Edit, X } from 'lucide-react';
 import { getBusinessSettings, updateBusinessSettings, type BusinessSettings } from '../../services/businessSettings';
 
 const defaultBusinessData: BusinessSettings = {

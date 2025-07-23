@@ -13,7 +13,6 @@ import {
   Calendar,
   Tag,
   TrendingUp,
-  BarChart3,
   X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -104,12 +103,6 @@ const AuctionsPage: React.FC = () => {
     setSuccessMessage('Auction purchase saved successfully!');
     fetchAuctions();
     setTimeout(() => setSuccessMessage(null), 3000);
-  };
-
-  const handleEditClick = (e: React.MouseEvent, auction: AuctionPurchase) => {
-    e.stopPropagation();
-    setSelectedAuction(auction);
-    setShowModal(true);
   };
 
   const handleRowClick = (auctionId: string) => {
@@ -259,10 +252,6 @@ const AuctionsPage: React.FC = () => {
               <AuctionPurchaseForm
                 initialData={selectedAuction}
                 onSuccess={handleFormSuccess}
-                onCancel={() => {
-                  setShowModal(false);
-                  setSelectedAuction(null);
-                }}
                 isEditing={!!selectedAuction}
               />
             </div>

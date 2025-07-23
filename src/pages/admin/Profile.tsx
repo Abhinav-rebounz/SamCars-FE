@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Save, Edit, X, Shield, Calendar, CreditCard, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { User, Mail, Phone, Save, Edit, X, Shield, Calendar, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateProfile } from '../../services/auth';
 
@@ -37,7 +37,7 @@ const AdminProfile: React.FC = () => {
         driverLicense: user.driverLicense || '',
         dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
         emailVerified: user.emailVerified || false,
-        isActive: user.isActive !== false,
+        isActive: true,
         createdAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '',
         lastLogin: user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : ''
       };

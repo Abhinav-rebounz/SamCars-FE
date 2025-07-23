@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, ExternalLink, Image as ImageIcon, Trash2, ChevronLeft, ChevronRight, AlertTriangle, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Image as ImageIcon, Trash2, ChevronLeft, ChevronRight, AlertTriangle, FileText } from 'lucide-react';
 import { getVehicleById, deleteVehicle } from '../../services/inventory';
 import { Vehicle } from '../../types/vehicle';
 import AlertState from '../../components/ErrorState';
 import AddVehicleForm from '../../components/inventory/AddVehicleForm';
-import LoadingState from '../../components/LoadingState';
 import ErrorState from '../../components/ErrorState';
 
 const VehicleDetails: React.FC = () => {
@@ -525,7 +524,6 @@ const VehicleDetails: React.FC = () => {
                     <AddVehicleForm
                       initialData={vehicle}
                       onSuccess={handleEditComplete}
-                      onCancel={() => setShowEditModal(false)}
                       isEditing={true}
                     />
                   </div>

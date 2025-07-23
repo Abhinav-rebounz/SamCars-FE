@@ -1,23 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  User, 
-  DollarSign, 
-  CreditCard, 
-  Calendar,
-  Car,
-  Wrench,
-  CheckCircle,
+import {
   AlertCircle,
-  ChevronRight,
+  Car,
+  CheckCircle,
   ChevronLeft,
-  Search
+  ChevronRight,
+  CreditCard,
+  DollarSign,
+  Search,
+  User,
+  X
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { getInventory } from '../../services/inventory';
 import { addManualPayment, updatePayment } from '../../services/payments';
 import { fetchAllUsers } from '../../services/user';
-import { getInventory } from '../../services/inventory';
-import { Vehicle } from '../../types/vehicle';
 import { Payment } from '../../types/payment';
+import { Vehicle } from '../../types/vehicle';
 
 interface ManualPaymentModalProps {
   isOpen: boolean;
@@ -45,12 +43,12 @@ interface PaymentForm {
   service_id?: string;
 }
 
-const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSuccess, 
-  editingPayment 
-}) => {
+const ManualPaymentModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  editingPayment,
+}: ManualPaymentModalProps) => {
   const [step, setStep] = useState<'customer' | 'payment'>('customer');
   const [customerType, setCustomerType] = useState<'registered' | 'unregistered'>('registered');
   const [users, setUsers] = useState<any[]>([]);
@@ -79,13 +77,19 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
     type: 'service'
   });
 
-  // Fetch users and vehicles on component mount
+  // Fetch users when modal opens and customerType is 'registered'
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && customerType === 'registered') {
       fetchUsers();
+    }
+  }, [isOpen, customerType]);
+
+  // Fetch vehicles when modal opens and payment type is 'vehicle_hold' or 'vehicle_purchase'
+  useEffect(() => {
+    if (isOpen && (paymentForm.type === 'vehicle_hold' || paymentForm.type === 'vehicle_purchase')) {
       fetchVehicles();
     }
-  }, [isOpen, editingPayment]);
+  }, [isOpen, paymentForm.type]);
 
   // Initialize form with existing payment data if editing
   useEffect(() => {
@@ -124,12 +128,21 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
       }));
     } else {
       setCustomerType('unregistered');
-      setCustomerForm({
-        first_name: payment.customer?.first_name || '',
-        last_name: payment.customer?.last_name || '',
-        email: payment.customer?.email || '',
-        phone: payment.customer?.phone || ''
-      });
+      if (typeof payment.customer === 'object' && payment.customer !== null) {
+        setCustomerForm({
+          first_name: (payment.customer as any).first_name || '',
+          last_name: (payment.customer as any).last_name || '',
+          email: (payment.customer as any).email || '',
+          phone: (payment.customer as any).phone || ''
+        });
+      } else {
+        setCustomerForm({
+          first_name: '',
+          last_name: '',
+          email: '',
+          phone: ''
+        });
+      }
       setPaymentForm(prev => ({
         ...prev,
         amount: payment.amount.toString(),
@@ -168,7 +181,11 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
             fuel_type: 'Unknown',
             body_type: 'Unknown'
           };
-          setSelectedVehicle(virtualVehicle);
+          // Ensure 'year' is a number for Vehicle type compatibility
+          if (typeof virtualVehicle.year === 'string') {
+            virtualVehicle.year = parseInt(virtualVehicle.year) || 0;
+          }
+          setSelectedVehicle(virtualVehicle as Vehicle);
         } else {
           // If no vehicle data in payment, create a basic virtual vehicle
           const basicVirtualVehicle = {
@@ -187,14 +204,20 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
             fuel_type: 'Unknown',
             body_type: 'Unknown'
           };
-          setSelectedVehicle(basicVirtualVehicle);
+          // Ensure 'year' is a number for Vehicle type compatibility
+          let yearValue: number = 0;
+          if (typeof basicVirtualVehicle.year === 'string') {
+            yearValue = parseInt(basicVirtualVehicle.year) || 0;
+          } else if (typeof basicVirtualVehicle.year === 'number') {
+            yearValue = basicVirtualVehicle.year;
+          }
+          setSelectedVehicle({
+            ...basicVirtualVehicle,
+            year: yearValue
+          } as unknown as Vehicle);
         }
       }
-    } else {
-      // Clear selected vehicle if no vehicle_id
-      setSelectedVehicle(null);
     }
-    
     // Go directly to payment step when editing
     setStep('payment');
   };
@@ -987,5 +1010,4 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
     </>
   );
 };
-
-export default ManualPaymentModal; 
+export default ManualPaymentModal;

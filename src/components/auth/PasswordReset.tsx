@@ -20,7 +20,7 @@ const PasswordReset: React.FC = () => {
         setSuccess(true);
         setEmail('');
       } else {
-        setError(response.error || 'Failed to request password reset');
+        setError(response.message || 'Failed to request password reset');
       }
     } catch (err) {
       setError('An error occurred while requesting password reset');

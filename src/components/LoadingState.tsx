@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 interface LoadingStateProps {
   message?: string;

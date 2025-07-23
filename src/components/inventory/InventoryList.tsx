@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { getInventory, deleteVehicle } from '../../services/inventory';
+import { Edit, Trash2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { deleteVehicle, getInventory } from '../../services/inventory';
 import { Vehicle } from '../../types/vehicle';
 import DeleteConfirmationModal from '../DeleteConfirmationModal';
-import { Edit, Trash2 } from 'lucide-react';
 
 interface InventoryListProps {
   onEdit?: (vehicle: Vehicle) => void;
@@ -57,7 +57,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
     if (!selectedVehicle) return;
 
     try {
-      const response = await deleteVehicle(selectedVehicle.id);
+      const response = await deleteVehicle(String(selectedVehicle.id));
       if (response.success) {
         // Remove the vehicle from the list
         setVehicles(prev => prev.filter(v => v.id !== selectedVehicle.id));

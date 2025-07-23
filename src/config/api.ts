@@ -111,7 +111,7 @@ export const API_ENDPOINTS = {
     AUCTION_DASHBOARD: '/auction-tracker/dashboard',
     AUCTION_DASHBOARD_SUMMARY: '/auction-tracker/dashboard-summary',
     ADD_AUCTION_PURCHASE: '/auction-tracker/add-new',
-    UPDATE_AUCTION_PURCHASE: (id: string) => `/auction-tracker/update`,
+    UPDATE_AUCTION_PURCHASE: () => `/auction-tracker/update`,
     DELETE_AUCTION_PURCHASE: (id: string) => `/auction-tracker/delete/${id}`,
     FETCH_AUCTION_PURCHASES: '/auction-tracker/fetch-all',
     
