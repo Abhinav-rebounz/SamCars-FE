@@ -1,21 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateProfile } from '../../services/auth';
+import { getDashboardStats, DashboardStats } from '../../services/dashboard';
 
-interface DashboardData {
-  totalVehicles: number;
-  totalUsers: number;
-  totalSales: number;
-  recentActivity: {
-    id: string;
-    type: string;
-    description: string;
-    timestamp: string;
-  }[];      
-}
 
 const AdminDashboard: React.FC = () => {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, setUser } = useAuth();
@@ -35,12 +25,7 @@ const AdminDashboard: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        // Import getAdminDashboard from the appropriate service
-        // Fix: Use require instead of dynamic import to avoid module resolution issues
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { getAdminDashboard } = require('../../services/admin');
-        const response = await getAdminDashboard();
-
+        const response = await getDashboardStats();
         if (response.success && response.data) {
           setDashboardData(response.data);
         } else {
@@ -52,7 +37,6 @@ const AdminDashboard: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
   }, []);
 
@@ -198,15 +182,15 @@ const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-600 mb-2">Total Vehicles</h3>
-          <p className="text-3xl font-bold text-blue-600">{dashboardData.totalVehicles}</p>
+          <p className="text-3xl font-bold text-blue-600">{dashboardData.summary.total_vehicles}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-600 mb-2">Total Users</h3>
-          <p className="text-3xl font-bold text-green-600">{dashboardData.totalUsers}</p>
+          <p className="text-3xl font-bold text-green-600">{dashboardData.summary.total_users}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">Total Sales</h3>
-          <p className="text-3xl font-bold text-purple-600">${dashboardData.totalSales.toLocaleString()}</p>
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">Total Revenue</h3>
+          <p className="text-3xl font-bold text-purple-600">${Number(dashboardData.summary.total_revenue).toLocaleString()}</p>
         </div>
       </div>
 
@@ -216,21 +200,21 @@ const AdminDashboard: React.FC = () => {
           <h2 className="text-xl font-semibold">Recent Activity</h2>
         </div>
         <div className="divide-y">
-          {dashboardData.recentActivity.length === 0 ? (
+          {dashboardData.recent_activity.length === 0 ? (
             <div className="p-6 text-gray-400 text-center">No recent activity to display.</div>
           ) : (
-            dashboardData.recentActivity.map((activity) => (
-            <div key={activity.id} className="p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-medium">{activity.description}</p>
-                  <p className="text-sm text-gray-500">{activity.type}</p>
+            dashboardData.recent_activity.map((activity: any) => (
+              <div key={activity.id} className="p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium">{activity.description}</p>
+                    <p className="text-sm text-gray-500">{activity.type}</p>
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {new Date(activity.timestamp).toLocaleDateString()}
+                  </span>
                 </div>
-                <span className="text-sm text-gray-500">
-                  {new Date(activity.timestamp).toLocaleDateString()}
-                </span>
               </div>
-            </div>
             ))
           )}
         </div>
