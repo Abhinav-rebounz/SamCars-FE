@@ -120,7 +120,7 @@ const ContactPage: React.FC = () => {
               <h3 className="text-lg font-semibold mb-2">Email</h3>
               <p className="text-gray-600 mb-2">General Inquiries</p>
               <a href={`mailto:${businessData?.email}`} className="text-blue-700 font-medium">
-                {businessData?.email || 'info@samcars.com'}
+                {businessData?.email || 'info@saamcars.com'}
               </a>
             </div>
             

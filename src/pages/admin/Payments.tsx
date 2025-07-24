@@ -300,66 +300,64 @@ const Payments: React.FC = () => {
       
       {/* Filters and Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-          <div className="flex-1 max-w-md">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Search */}
+          <div className="flex-1 min-w-[220px]">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
-                placeholder="Search by customer, description, or transaction ID..."
+                placeholder="Enter name or description"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="block w-full pl-12 pr-4 py-2 border-b-[1.5px] border-blue-600 rounded-none bg-transparent placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors text-sm"
               />
             </div>
           </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center">
-              <Filter className="h-5 w-5 text-gray-400 mr-3" />
-              <select
-                value={filterStatus}
-                onChange={handleFilterChange}
-                className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="all">All Status</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-                <option value="failed">Failed</option>
-                <option value="refunded">Refunded</option>
-              </select>
-            </div>
-
-            <div className="flex items-center">
-              <Filter className="h-5 w-5 text-gray-400 mr-3" />
-              <select
-                value={filterType}
-                onChange={handleTypeFilterChange}
-                className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="all">All Types</option>
-                <option value="stripe">Stripe</option>
-                <option value="manual">Manual</option>
-                <option value="cash">Cash</option>
-                <option value="check">Check</option>
-              </select>
-            </div>
-
-            <div>
-              <select
-                value={itemsPerPage}
-                onChange={handleItemsPerPageChange}
-                className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="5">5 per page</option>
-                <option value="10">10 per page</option>
-                <option value="25">25 per page</option>
-                <option value="50">50 per page</option>
-                <option value="100">100 per page</option>
-              </select>
-            </div>
+          {/* Status Filter */}
+          <div className="flex items-center min-w-[180px]">
+            <Filter className="h-5 w-5 text-gray-400 mr-2" />
+            <select
+              value={filterStatus}
+              onChange={handleFilterChange}
+              className="block w-full pl-4 pr-8 py-2 text-sm border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors"
+            >
+              <option value="all">Payment status</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
+              <option value="refunded">Refunded</option>
+            </select>
+          </div>
+          {/* Type Filter */}
+          <div className="flex items-center min-w-[200px] w-full">
+            <select
+              value={filterType}
+              onChange={handleTypeFilterChange}
+              className="block w-full pl-4 pr-8 py-2 text-sm border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors"
+            >
+              <option value="all">Payment types</option>
+              <option value="stripe">Stripe</option>
+              <option value="manual">Manual</option>
+              <option value="cash">Cash</option>
+              <option value="check">Check</option>
+            </select>
+          </div>
+          {/* Items per page */}
+          <div className="flex items-center min-w-[160px] md:ml-4">
+            <select
+              value={itemsPerPage}
+              onChange={handleItemsPerPageChange}
+              className="block w-full pl-4 pr-8 py-2 text-sm border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors"
+            >
+              <option value="5">5 per page</option>
+              <option value="10">10 per page</option>
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+              <option value="100">100 per page</option>
+            </select>
           </div>
         </div>
       </div>

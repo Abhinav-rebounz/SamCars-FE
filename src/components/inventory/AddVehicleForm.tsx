@@ -13,7 +13,6 @@ import {
   Plus,
   Settings,
   Shield,
-  Star,
   Tag,
   Upload,
   Wrench,
@@ -63,7 +62,11 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
     location: '',
     stock_number: '',
     is_featured: false,
-    sold_price: String(initialData?.sold_price || '')
+    sold_price: String(initialData?.sold_price || ''),
+    is_bought_in_auction: false,
+    buyer_name: '',
+    bought_price: '',
+    repair_costs: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -72,6 +75,12 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
   const [newImages, setNewImages] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
+
+  // Add state for custom feature input
+  const [customFeature, setCustomFeature] = useState('');
+  // Add state for editing a feature
+  const [editingFeatureIndex, setEditingFeatureIndex] = useState<number | null>(null);
+  const [editingFeatureValue, setEditingFeatureValue] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -98,7 +107,11 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         location: initialData.location || '',
         stock_number: initialData.stock_number || '',
         is_featured: initialData.is_featured || false,
-        sold_price: String(initialData.sold_price || '')
+        sold_price: String(initialData.sold_price || ''),
+        is_bought_in_auction: initialData.is_bought_in_auction || false,
+        buyer_name: initialData.buyer_name || '',
+        bought_price: initialData.bought_price ? String(initialData.bought_price) : '',
+        repair_costs: initialData.repair_costs ? String(initialData.repair_costs) : ''
       });
       
       // Load existing images for edit - handle both string array and object array formats
@@ -142,7 +155,11 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
         location: '',
         stock_number: '',
         is_featured: false,
-        sold_price: ''
+        sold_price: '',
+        is_bought_in_auction: false,
+        buyer_name: '',
+        bought_price: '',
+        repair_costs: ''
       });
       setExistingImages([]);
       setNewImages([]);
@@ -189,6 +206,11 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
             setFormData(prev => ({
                 ...prev,
                 is_featured: checked
+            }));
+        } else if (name === 'is_bought_in_auction') {
+            setFormData(prev => ({
+                ...prev,
+                is_bought_in_auction: checked
             }));
         }
     } else {
@@ -483,7 +505,57 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
               <h2 className="text-xl font-bold text-gray-900">Pricing & Status</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-center mt-2 md:col-span-2">
+                <input
+                  type="checkbox"
+                  name="is_bought_in_auction"
+                  checked={formData.is_bought_in_auction}
+                  onChange={handleInputChange}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                  id="is_bought_in_auction"
+                />
+                <label htmlFor="is_bought_in_auction" className="text-sm font-medium text-gray-700 select-none">Is vehicle bought in auction</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Buyer Name</label>
+                <input
+                  type="text"
+                  name="buyer_name"
+                  value={formData.buyer_name}
+                  onChange={handleInputChange}
+                  placeholder="e.g., John Doe"
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Bought Price</label>
+                <input
+                  type="number"
+                  name="bought_price"
+                  value={formData.bought_price}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g., 20000"
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Repair Costs</label>
+                <input
+                  type="number"
+                  name="repair_costs"
+                  value={formData.repair_costs}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g., 1500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <DollarSign className="h-4 w-4 inline mr-2 text-gray-400" />
@@ -501,31 +573,6 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <DollarSign className="h-4 w-4 inline mr-2 text-gray-400" />
-                  Sold Price
-                </label>
-                <input
-                  type="number"
-                  name="sold_price"
-                  value={formData.sold_price}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData(prev => ({
-                      ...prev,
-                      sold_price: value,
-                      status: value && parseFloat(value) > 0 ? 'sold' : prev.status
-                    }));
-                  }}
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g., 24000"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Tag className="h-4 w-4 inline mr-2 text-gray-400" />
@@ -540,27 +587,9 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
                 >
                   <option value="">Select status</option>
                   <option value="available">Available</option>
-                  <option value="sold">Sold</option>
-                  <option value="pending">Pending</option>
+                  <option value="recently-bought">Recently Bought</option>
                   <option value="maintenance">Maintenance</option>
-                  <option value="auction">Auction</option>
                 </select>
-              </div>
-
-              <div className="flex items-center justify-center">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="is_featured"
-                    checked={formData.is_featured}
-                    onChange={handleInputChange}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <div className="flex items-center">
-                    <Star className="h-4 w-4 text-yellow-500 mr-2" />
-                    <span className="text-sm font-medium text-gray-700">Mark as Featured</span>
-                  </div>
-                </label>
               </div>
             </div>
           </div>
@@ -749,35 +778,145 @@ const AddVehicleForm: React.FC<AddVehicleFormProps> = ({
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Features section first */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   <Zap className="h-4 w-4 inline mr-2 text-gray-400" />
                   Vehicle Features
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['Bluetooth', 'Backup Camera', 'Navigation', 'Heated Seats', 'Sunroof', 'Remote Start', 'Blind Spot Monitor', 'Apple CarPlay', 'Android Auto'].map(feature => (
-                    <label key={feature} className="flex items-center space-x-3 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                      <input
-                        type="checkbox"
-                        name="features"
-                        value={feature}
-                        checked={formData.features.includes(feature)}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700">{feature}</span>
-                    </label>
-                  ))}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {['Bluetooth', 'Backup Camera', 'Navigation', 'Heated Seats', 'Sunroof', 'Remote Start', 'Blind Spot Monitor', 'Apple CarPlay', 'Android Auto']
+                    .concat(formData.features.filter(f => ![
+                      'Bluetooth', 'Backup Camera', 'Navigation', 'Heated Seats', 'Sunroof', 'Remote Start', 'Blind Spot Monitor', 'Apple CarPlay', 'Android Auto'
+                    ].includes(f)))
+                    .map((feature, idx, arr) => (
+                      <div key={feature} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          name="features"
+                          value={feature}
+                          checked={Array.isArray(formData.features) && formData.features.includes(feature)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              handleInputChange(e);
+                            } else {
+                              setFormData(prev => ({
+                                ...prev,
+                                features: prev.features.filter(f => f !== feature)
+                              }));
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        {editingFeatureIndex === idx ? (
+                          <>
+                            <input
+                              type="text"
+                              value={editingFeatureValue}
+                              onChange={e => setEditingFeatureValue(e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              className="ml-1 text-green-600 hover:text-green-800 text-xs font-bold"
+                              onClick={() => {
+                                if (editingFeatureValue.trim() && !arr.includes(editingFeatureValue.trim())) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    features: prev.features.map((f, i) => i === idx ? editingFeatureValue.trim() : f)
+                                  }));
+                                  setEditingFeatureIndex(null);
+                                  setEditingFeatureValue('');
+                                }
+                              }}
+                              title="Save"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              type="button"
+                              className="ml-1 text-gray-500 hover:text-gray-700 text-xs font-bold"
+                              onClick={() => {
+                                setEditingFeatureIndex(null);
+                                setEditingFeatureValue('');
+                              }}
+                              title="Cancel"
+                            >
+                              ×
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-sm text-gray-700 flex-1">{feature}</span>
+                            <button
+                              type="button"
+                              className="ml-1 text-blue-500 hover:text-blue-700 text-xs font-bold"
+                              onClick={() => {
+                                setEditingFeatureIndex(idx);
+                                setEditingFeatureValue(feature);
+                              }}
+                              title="Edit feature"
+                            >
+                              ✎
+                            </button>
+                          </>
+                        )}
+                        {/* Show remove button for custom features */}
+                        {![
+                          'Bluetooth', 'Backup Camera', 'Navigation', 'Heated Seats', 'Sunroof', 'Remote Start', 'Blind Spot Monitor', 'Apple CarPlay', 'Android Auto'
+                        ].includes(feature) && editingFeatureIndex !== idx && (
+                          <button
+                            type="button"
+                            className="ml-2 text-red-500 hover:text-red-700 text-xs font-bold"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setFormData(prev => ({
+                                ...prev,
+                                features: prev.features.filter(f => f !== feature)
+                              }));
+                            }}
+                            title="Remove feature"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                <div className="flex mt-2 space-x-2">
+                  <input
+                    type="text"
+                    value={customFeature}
+                    onChange={e => setCustomFeature(e.target.value)}
+                    placeholder="Add custom feature"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-semibold"
+                    onClick={() => {
+                      if (customFeature.trim() && !formData.features.includes(customFeature.trim())) {
+                        setFormData(prev => ({
+                          ...prev,
+                          features: [...prev.features, customFeature.trim()]
+                        }));
+                        setCustomFeature('');
+                      }
+                    }}
+                  >
+                    Add
+                  </button>
                 </div>
               </div>
-
+              {/* Tags section second */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   <Tag className="h-4 w-4 inline mr-2 text-gray-400" />
                   Vehicle Tags
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  {['New Arrival', 'Featured', 'Price Drop', 'Low Mileage', 'Certified', 'One Owner', 'Clean History'].map(tag => (
+                  {['One Owner', 'Low Mileage', 'New Arrival', 'Clean History'].map(tag => (
                     <label key={tag} className="flex items-center space-x-3 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                       <input
                         type="checkbox"

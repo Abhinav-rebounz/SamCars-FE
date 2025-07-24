@@ -57,6 +57,7 @@ const Inventory: React.FC = () => {
   const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
   const [showAuctionVehicles, setShowAuctionVehicles] = useState(false);
+  const [purchaseType, setPurchaseType] = useState('');
 
   // Debounce search term
   const debouncedSearch = useDebounce(searchInput, 500);
@@ -340,7 +341,7 @@ const Inventory: React.FC = () => {
 
         {/* Filters and Search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:space-x-6 space-y-4 md:space-y-0">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Search */}
             <div className="flex-1 min-w-[220px]">
               <div className="relative">
@@ -349,14 +350,14 @@ const Inventory: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search vehicles by make, model, year, or VIN..."
+                  placeholder="Search VIN, Make, Model"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   className="block w-full pl-12 pr-4 py-2 border-b-[1.5px] border-blue-600 rounded-none bg-transparent placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors text-sm"
                 />
               </div>
             </div>
-            {/* Filter */}
+            {/* Vehicle status */}
             <div className="flex items-center min-w-[180px]">
               <Filter className="h-5 w-5 text-gray-400 mr-2" />
               <select
@@ -364,30 +365,29 @@ const Inventory: React.FC = () => {
                 onChange={handleFilterChange}
                 className="block w-full pl-4 pr-8 py-2 text-sm border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors"
               >
-                <option value="">All Vehicles</option>
+                <option value="" disabled>Vehicle status</option>
                 <option value="available">Available</option>
-                <option value="pending-available">Pending-Available</option>
-                <option value="maintenance">Maintenance</option>
+                <option value="maintenance">Under Maintenance</option>
                 <option value="sold">Sold</option>
                 <option value="reserved">Reserved</option>
-                <option value="recently-bought">Recently Bought</option>
+                <option value="recently-bought">Under Inspection</option>
               </select>
             </div>
-            {/* Show Auction Vehicles Checkbox */}
-            <div className="flex items-center min-w-[200px]">
-              <input
-                id="show-auction-vehicles"
-                type="checkbox"
-                checked={showAuctionVehicles}
-                onChange={e => setShowAuctionVehicles(e.target.checked)}
-                className="h-4 w-4 text-blue-600 border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:ring-0 focus:border-blue-600"
-              />
-              <label htmlFor="show-auction-vehicles" className="ml-2 text-gray-700 text-base select-none">
-                Show auction vehicles
-              </label>
+            {/* Vehicle by purchase type */}
+            <div className="flex items-center min-w-[200px] w-full">
+              <select
+                id="purchase-type-filter"
+                value={purchaseType}
+                onChange={e => setPurchaseType(e.target.value)}
+                className="block w-full pl-4 pr-8 py-2 text-sm border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors"
+              >
+                <option value="" disabled>Purchase type</option>
+                <option value="auction">Bought in Auction</option>
+                <option value="individual">Bought from Individual</option>
+              </select>
             </div>
             {/* Items per page */}
-            <div className="flex items-center min-w-[160px]">
+            <div className="flex items-center min-w-[160px] md:ml-4">
               <select
                 value={itemsPerPage}
                 onChange={handleItemsPerPageChange}
@@ -586,13 +586,13 @@ const Inventory: React.FC = () => {
             
             {/* Pagination Controls (move to below table, center) */}
             {pagination && (
-              <div className="flex flex-col items-center justify-center space-y-2 mt-8">
-                <div className="flex items-center justify-center space-x-2">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4 mt-4">
+                <div className="flex items-center justify-center space-x-4">
                   {/* Left Arrow Button */}
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={!pagination.has_previous}
-                    className={`p-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none transition-colors ${
+                    className={`p-2 rounded-lg border transition-colors ${
                       !pagination.has_previous
                         ? 'text-gray-300 border-gray-200 cursor-not-allowed'
                         : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
@@ -612,7 +612,7 @@ const Inventory: React.FC = () => {
                         <button
                           key={1}
                           onClick={() => handlePageChange(1)}
-                          className={`px-3 py-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none text-sm font-medium transition-colors ${
+                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                             current === 1
                               ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                               : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
@@ -636,7 +636,7 @@ const Inventory: React.FC = () => {
                             <button
                               key={i}
                               onClick={() => handlePageChange(i)}
-                              className={`px-3 py-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none text-sm font-medium transition-colors ${
+                              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                                 current === i
                                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                                   : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
@@ -661,7 +661,7 @@ const Inventory: React.FC = () => {
                           <button
                             key={totalPages}
                             onClick={() => handlePageChange(totalPages)}
-                            className={`px-3 py-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none text-sm font-medium transition-colors ${
+                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                               current === totalPages
                                 ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                                 : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
@@ -678,7 +678,7 @@ const Inventory: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={!pagination?.has_next}
-                    className={`p-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none transition-colors ${
+                    className={`p-2 rounded-lg border transition-colors ${
                       !pagination?.has_next
                         ? 'text-gray-300 border-gray-200 cursor-not-allowed'
                         : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'

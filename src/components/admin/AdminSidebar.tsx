@@ -2,7 +2,6 @@ import {
   Building,
   Car,
   DollarSign,
-  Gavel,
   Home,
   LayoutDashboard,
   LogOut,
@@ -25,7 +24,7 @@ const AdminSidebar: React.FC = () => {
     { path: '/admin/inventory', icon: <Car size={20} />, label: 'Inventory' },
     // { path: '/admin/appointments', icon: <Calendar size={20} />, label: 'Appointments' },
     { path: '/admin/payments', icon: <DollarSign size={20} />, label: 'Payments' },
-    { path: '/admin/auctions', icon: <Gavel size={20} />, label: 'Auctions' },
+    // { path: '/admin/auctions', icon: <Gavel size={20} />, label: 'Auctions' },
     // { path: '/admin/services', icon: <Wrench size={20} />, label: 'Services' },
   ];
 
@@ -39,7 +38,7 @@ const AdminSidebar: React.FC = () => {
       <div className="flex items-center justify-center h-16 border-b border-gray-800">
         <Link to="/admin" className="flex items-center">
           <Car className="h-8 w-8 text-blue-400 mr-2" />
-          <span className="text-xl font-bold">Sam Cars Admin</span>
+          <span className="text-xl font-bold">Saam Cars Admin</span>
         </Link>
       </div>
       
