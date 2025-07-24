@@ -56,6 +56,7 @@ const Inventory: React.FC = () => {
   const [formSuccessMessage, setFormSuccessMessage] = useState<string | null>(null);
   const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
+  const [showAuctionVehicles, setShowAuctionVehicles] = useState(false);
 
   // Debounce search term
   const debouncedSearch = useDebounce(searchInput, 500);
@@ -82,7 +83,8 @@ const Inventory: React.FC = () => {
       sort_order: sortDirection,
       page: currentPage,
       limit: itemsPerPage,
-      status: filterStatus
+      status: filterStatus,
+      auction: showAuctionVehicles,
     });
     
     setLoading(true);
@@ -96,6 +98,7 @@ const Inventory: React.FC = () => {
         page: currentPage,
         limit: itemsPerPage,
         ...(filterStatus && { status: filterStatus }),
+        ...(showAuctionVehicles ? { auction: true } : {}),
       };
       const response = await getInventory(filters);
       console.log('API response:', response);
@@ -116,7 +119,7 @@ const Inventory: React.FC = () => {
   // Fetch vehicles when dependencies change
   useEffect(() => {
     fetchVehicles();
-  }, [debouncedSearch, sortField, sortDirection, currentPage, itemsPerPage, filterStatus]);
+  }, [debouncedSearch, sortField, sortDirection, currentPage, itemsPerPage, filterStatus, showAuctionVehicles]);
 
   // Filter and sort vehicles (client-side fallback)
   const filteredVehicles = vehicles.filter(vehicle => {
@@ -337,8 +340,9 @@ const Inventory: React.FC = () => {
 
         {/* Filters and Search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-            <div className="flex-1 max-w-md">
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-6 space-y-4 md:space-y-0">
+            {/* Search */}
+            <div className="flex-1 min-w-[220px]">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Search className="h-5 w-5 text-gray-400" />
@@ -348,40 +352,53 @@ const Inventory: React.FC = () => {
                   placeholder="Search vehicles by make, model, year, or VIN..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="block w-full pl-12 pr-4 py-2 border-b-[1.5px] border-blue-600 rounded-none bg-transparent placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors text-sm"
                 />
               </div>
             </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <Filter className="h-5 w-5 text-gray-400 mr-3" />
-                <select
-                  value={filterStatus}
-                  onChange={handleFilterChange}
-                  className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="">All Vehicles</option>
-                  <option value="available">Available</option>
-                  <option value="sold">Sold</option>
-                  <option value="pending">Pending</option>
-                  <option value="maintenance">Maintenance</option>
-                </select>
-              </div>
-
-              <div>
-                <select
-                  value={itemsPerPage}
-                  onChange={handleItemsPerPageChange}
-                  className="block w-full pl-4 pr-10 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="5">5 per page</option>
-                  <option value="10">10 per page</option>
-                  <option value="25">25 per page</option>
-                  <option value="50">50 per page</option>
-                  <option value="100">100 per page</option>
-                </select>
-              </div>
+            {/* Filter */}
+            <div className="flex items-center min-w-[180px]">
+              <Filter className="h-5 w-5 text-gray-400 mr-2" />
+              <select
+                value={filterStatus}
+                onChange={handleFilterChange}
+                className="block w-full pl-4 pr-8 py-2 text-sm border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors"
+              >
+                <option value="">All Vehicles</option>
+                <option value="available">Available</option>
+                <option value="pending-available">Pending-Available</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="sold">Sold</option>
+                <option value="reserved">Reserved</option>
+                <option value="recently-bought">Recently Bought</option>
+              </select>
+            </div>
+            {/* Show Auction Vehicles Checkbox */}
+            <div className="flex items-center min-w-[200px]">
+              <input
+                id="show-auction-vehicles"
+                type="checkbox"
+                checked={showAuctionVehicles}
+                onChange={e => setShowAuctionVehicles(e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:ring-0 focus:border-blue-600"
+              />
+              <label htmlFor="show-auction-vehicles" className="ml-2 text-gray-700 text-base select-none">
+                Show auction vehicles
+              </label>
+            </div>
+            {/* Items per page */}
+            <div className="flex items-center min-w-[160px]">
+              <select
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="block w-full pl-4 pr-8 py-2 text-sm border-b-[1.5px] border-blue-600 rounded-none bg-transparent focus:outline-none focus:ring-0 focus:border-blue-600 transition-colors"
+              >
+                <option value="5">5 per page</option>
+                <option value="10">10 per page</option>
+                <option value="25">25 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+              </select>
             </div>
           </div>
         </div>
@@ -567,37 +584,35 @@ const Inventory: React.FC = () => {
               </table>
             </div>
             
-            {/* Simple Page Navigation */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4 mt-4">
-              <div className="flex items-center justify-center space-x-4">
-                {/* Left Arrow Button */}
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={!pagination?.has_previous}
-                  className={`p-2 rounded-lg border transition-colors ${
-                    !pagination?.has_previous
-                      ? 'text-gray-300 border-gray-200 cursor-not-allowed'
-                      : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
-                  }`}
-                  title="Previous Page"
-                >
-                  <ChevronDown className="h-5 w-5 rotate-90" />
-                </button>
-                
-                {/* Page Numbers */}
-                <div className="flex items-center space-x-2">
-                  {pagination ? (
-                    (() => {
+            {/* Pagination Controls (move to below table, center) */}
+            {pagination && (
+              <div className="flex flex-col items-center justify-center space-y-2 mt-8">
+                <div className="flex items-center justify-center space-x-2">
+                  {/* Left Arrow Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={!pagination.has_previous}
+                    className={`p-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none transition-colors ${
+                      !pagination.has_previous
+                        ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                        : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                    }`}
+                    title="Previous Page"
+                  >
+                    <ChevronDown className="h-5 w-5 rotate-90" />
+                  </button>
+                  {/* Page Numbers */}
+                  <div className="flex items-center space-x-2">
+                    {(() => {
                       const pages = [];
                       const totalPages = pagination.total_pages;
-                      const current = pagination.current_page;
-                      
+                      const current = currentPage;
                       // Always show first page
                       pages.push(
                         <button
                           key={1}
                           onClick={() => handlePageChange(1)}
-                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          className={`px-3 py-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none text-sm font-medium transition-colors ${
                             current === 1
                               ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                               : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
@@ -606,7 +621,6 @@ const Inventory: React.FC = () => {
                           1
                         </button>
                       );
-                      
                       // Show ellipsis if there's a gap after page 1
                       if (current > 3) {
                         pages.push(
@@ -615,7 +629,6 @@ const Inventory: React.FC = () => {
                           </span>
                         );
                       }
-                      
                       // Show pages around current page
                       for (let i = Math.max(2, current - 1); i <= Math.min(totalPages - 1, current + 1); i++) {
                         if (i !== 1 && i !== totalPages) {
@@ -623,7 +636,7 @@ const Inventory: React.FC = () => {
                             <button
                               key={i}
                               onClick={() => handlePageChange(i)}
-                              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              className={`px-3 py-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none text-sm font-medium transition-colors ${
                                 current === i
                                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                                   : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
@@ -634,7 +647,6 @@ const Inventory: React.FC = () => {
                           );
                         }
                       }
-                      
                       // Show ellipsis if there's a gap before last page
                       if (current < totalPages - 2) {
                         pages.push(
@@ -643,14 +655,13 @@ const Inventory: React.FC = () => {
                           </span>
                         );
                       }
-                      
                       // Always show last page (if there is more than one page)
                       if (totalPages > 1) {
                         pages.push(
                           <button
                             key={totalPages}
                             onClick={() => handlePageChange(totalPages)}
-                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                            className={`px-3 py-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none text-sm font-medium transition-colors ${
                               current === totalPages
                                 ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                                 : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
@@ -660,38 +671,33 @@ const Inventory: React.FC = () => {
                           </button>
                         );
                       }
-                      
                       return pages;
-                    })()
-                  ) : (
-                    <span className="text-gray-500">Loading...</span>
-                  )}
+                    })()}
+                  </div>
+                  {/* Right Arrow Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={!pagination?.has_next}
+                    className={`p-1 border-b-[1.5px] border-blue-600 bg-transparent rounded-none transition-colors ${
+                      !pagination?.has_next
+                        ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                        : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
+                    }`}
+                    title="Next Page"
+                  >
+                    <ChevronDown className="h-5 w-5 -rotate-90" />
+                  </button>
                 </div>
-                
-                {/* Right Arrow Button */}
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={!pagination?.has_next}
-                  className={`p-2 rounded-lg border transition-colors ${
-                    !pagination?.has_next
-                      ? 'text-gray-300 border-gray-200 cursor-not-allowed'
-                      : 'text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400'
-                  }`}
-                  title="Next Page"
-                >
-                  <ChevronDown className="h-5 w-5 -rotate-90" />
-                </button>
+                {/* Page Info */}
+                {pagination && (
+                  <div className="text-center mt-3">
+                    <p className="text-sm text-gray-600">
+                      Page {pagination.current_page} of {pagination.total_pages} • {pagination.total_items} total vehicles
+                    </p>
+                  </div>
+                )}
               </div>
-              
-              {/* Page Info */}
-              {pagination && (
-                <div className="text-center mt-3">
-                  <p className="text-sm text-gray-600">
-                    Page {pagination.current_page} of {pagination.total_pages} • {pagination.total_items} total vehicles
-                  </p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         )}
 
